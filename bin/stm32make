@@ -19,7 +19,32 @@ detect_serial_group() {
 
 SERIAL_GROUP=$(detect_serial_group)
 
-# 查找工具包根目录
+# ── 帮助函数 ──
+show_help() {
+echo "STM32 项目生成器 v1.2"
+echo "用法:"
+echo "  stm32make <命令> [参数]"
+echo ""
+echo "命令:"
+echo "  new <项目名> <芯片型号>   新建项目"
+echo "  flash [选项] [文件]      自动检测设备并烧录"
+echo "  list                     列出可用芯片"
+echo "  doctor                   诊断开发环境"
+echo "  update                   从GitHub获取最新版"
+echo "  help, -h, --help         显示此帮助"
+echo ""
+echo "flash 选项:"
+echo "  --use-reset          启用硬件复位（需接NRST线）"
+echo ""
+echo "示例:"
+echo "  stm32make new led-blink F103C8"
+echo "  cd led-blink && cmake -B build && cmake --build build"
+echo "  stm32make flash"
+echo "  stm32make doctor"
+echo "  stm32make update"
+}
+
+# ── 查找工具包根目录 ──
 find_toolkit() {
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit" "$(dirname "$SCRIPT_DIR")"; do
@@ -278,26 +303,12 @@ update)
     ;;
 
 # ── 帮助 ──
+help|-h|--help)
+    show_help
+    exit 0
+    ;;
+
 *)
-echo "STM32 项目生成器 v1.2"
-echo "用法:"
-echo "  stm32make new <项目名> <芯片型号>   新建项目"
-echo "  stm32make flash [<文件.bin>]        自动检测设备并烧录"
-echo "  stm32make flash --use-reset [<文件>] 烧录+硬件复位(NRST需接线)"
-echo "  stm32make list                      列出可用芯片"
-echo "  stm32make doctor                    诊断开发环境"
-echo "  stm32make update                    从GitHub获取最新版"
-echo ""
-echo "提示: flash默认用 --connect-under-reset（不依赖NRST线）"
-echo "     接好NRST的用户可加 --use-reset 启用硬件复位"
-echo ""
-echo "示例:"
-echo "  stm32make new led-blink F103C8"
-echo "  cd led-blink && cmake -B build && cmake --build build"
-echo "  stm32make flash build/led-blink.bin"
-echo "  stm32make flash                     (自动查找build/*.bin)"
-echo "  stm32make flash --use-reset          (有NRST接线时)"
-echo "  stm32make doctor                     (检查环境)"
-echo "  stm32make update                     (更新工具)"
+    show_help
     ;;
 esac
