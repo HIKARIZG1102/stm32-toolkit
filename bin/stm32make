@@ -196,8 +196,15 @@ flash)
         p "   或运行: newgrp $SERIAL_GROUP" "   Or: newgrp $SERIAL_GROUP"
         echo ""
         p "   用 sudo 临时烧录..." "   Flashing with sudo..."
+        # DTR/RTS 自动进入 bootloader（兼容 FlyMcu 电路）
+        p "   DTR/RTS 正脉冲进 BootLoader..." "   DTR/RTS pulse for BootLoader..."
+        sudo stm32flash -b 115200 -i '-dtr&-rts,,,dtr&rts' -w "$BIN" -g 0x0 "$PORT" && exit 0
+        p "   DTR/RTS 失败，尝试普通模式..." "   DTR/RTS failed, trying normal..."
         sudo stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     else
+        p "   DTR/RTS 正脉冲进 BootLoader..." "   DTR/RTS pulse for BootLoader..."
+        stm32flash -b 115200 -i '-dtr&-rts,,,dtr&rts' -w "$BIN" -g 0x0 "$PORT" && exit 0
+        p "   DTR/RTS 失败，尝试普通模式..." "   DTR/RTS failed, trying normal..."
         stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     fi
     ;;
