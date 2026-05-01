@@ -188,7 +188,7 @@ flash)
         PORT=$PORTS
     fi
 
-    p "✅ 使用 $PORT" "✅ Using $PORT"
+    echo "✅ 使用 $PORT"
 
     if [ ! -r "$PORT" ]; then
         p "⚠️  需要串口权限" "⚠️  Serial port permission denied"
@@ -196,15 +196,37 @@ flash)
         p "   或运行: newgrp $SERIAL_GROUP" "   Or: newgrp $SERIAL_GROUP"
         echo ""
         p "   用 sudo 临时烧录..." "   Flashing with sudo..."
-        # DTR/RTS 自动进入 bootloader（兼容 FlyMcu 电路）
-        p "   DTR/RTS 正脉冲进 BootLoader..." "   DTR/RTS pulse for BootLoader..."
-        sudo stm32flash -b 115200 -i '-dtr&-rts,,,dtr&rts' -w "$BIN" -g 0x0 "$PORT" && exit 0
-        p "   DTR/RTS 失败，尝试普通模式..." "   DTR/RTS failed, trying normal..."
+        # 手动DTR/RTS序列，再用 -c 模式烧录
+        python3 -c "
+import serial, time, sys
+try:
+    ser = serial.Serial('$PORT', 115200, timeout=2)
+    ser.dtr = False; ser.rts = True; time.sleep(0.15)
+    ser.dtr = True; time.sleep(0.3)
+    ser.write(b'\\x7f'); time.sleep(0.05)
+    # 确认收到ACK
+    ack = ser.read(10)
+    if len(ack) == 0: sys.exit(1)
+    ser.close()
+except: sys.exit(1)
+" 2>/dev/null && \
+        sudo stm32flash -b 115200 -c -w "$BIN" -g 0x0 "$PORT" || \
         sudo stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     else
-        p "   DTR/RTS 正脉冲进 BootLoader..." "   DTR/RTS pulse for BootLoader..."
-        stm32flash -b 115200 -i '-dtr&-rts,,,dtr&rts' -w "$BIN" -g 0x0 "$PORT" && exit 0
-        p "   DTR/RTS 失败，尝试普通模式..." "   DTR/RTS failed, trying normal..."
+        # 手动DTR/RTS序列
+        python3 -c "
+import serial, time, sys
+try:
+    ser = serial.Serial('$PORT', 115200, timeout=2)
+    ser.dtr = False; ser.rts = True; time.sleep(0.15)
+    ser.dtr = True; time.sleep(0.3)
+    ser.write(b'\\x7f'); time.sleep(0.05)
+    ack = ser.read(10)
+    if len(ack) == 0: sys.exit(1)
+    ser.close()
+except: sys.exit(1)
+" 2>/dev/null && \
+        stm32flash -b 115200 -c -w "$BIN" -g 0x0 "$PORT" || \
         stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     fi
     ;;
