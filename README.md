@@ -1,226 +1,148 @@
-# STM32 Toolkit — Linux嵌入式开发工具集
+# STM32 Toolkit — Embedded Development for Linux
 
-一键安装，支持 Ubuntu / Debian / Fedora / Arch (含 AUR)。
-自动检测 Shell (bash/zsh/fish) 和串口组名。
+[中文版](README_zh.md)
 
-## 快速开始
+One-click STM32 project creation, compilation, and flashing on Linux. Supports Ubuntu / Debian / Fedora / Arch.
 
 ```bash
-# 1. 克隆
+# 1. Clone
 git clone https://github.com/HIKARIZG1102/stm32-toolkit.git
 cd stm32-toolkit
 
-# 2. 一键安装（自动检测系统，装依赖，配权限）
+# 2. One-click install (detects distro, installs deps, configures permissions)
 bash setup.sh
 
-# 3. 重新加载配置
+# 3. Reload shell config
 source ~/.bashrc
 
-# 4. 新建一个项目
+# 4. Create a project
 stm32make new led-blink F103C8
 
-# 5. 编译
+# 5. Build
 cd led-blink
 cmake -B build && cmake --build build
 
-# 6. 插上ST-Link，烧录
+# 6. Plug in ST-Link, flash
 stm32make flash
 ```
 
-## 分步说明
+## Features
 
-### 第一步：克隆 + 安装
+- **`stm32make new <name> <chip>`** — Generate a complete project with vector table, linker script, and CMakeLists.txt
+- **`stm32make flash`** — Auto-detect ST-Link or serial ISP, flash with one command
+- **`stm32make doctor`** — Diagnose your dev environment (compiler, tools, permissions)
+- **`stm32make update`** — Pull the latest version from GitHub
+- **`stm32make list`** — List supported chip templates
+- **SPL mode** (`--spl`) — Optional STM32 Standard Peripheral Library integration
 
-```bash
-git clone https://github.com/HIKARIZG1102/stm32-toolkit.git
-cd stm32-toolkit
-bash setup.sh
-```
+Language auto-detection: displays Chinese or English based on `$LANG`.
 
-`setup.sh` 会自动完成：
-- 检测你的 Linux 发行版（Ubuntu/Debian/Fedora/Arch）
-- 安装所有依赖（arm-none-eabi-gcc, cmake, stlink-tools, stm32flash, python3）
-- 配置 ST-Link udev 规则（免sudo使用ST-Link）
-- 添加 PATH 到 ~/.bashrc
-- 将你加入 dialout 组（串口权限）
+## Supported Chips
 
-### 第二步：新建项目
+| Chip | Command | Flash | RAM | Common Boards |
+|:----|:--------|:------|:----|:--------------|
+| STM32F103C8 | `stm32make new xxx F103C8` | 64K | 20K | Blue Pill, minimum dev board |
+| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | Various dev boards |
 
-```bash
-stm32make new 项目名 芯片型号
-```
-
-支持芯片：
-
-| 芯片 | 命令 | Flash | RAM | 常见板子 |
-|:----|:-----|:------|:----|:--------|
-| STM32F103C8 | `stm32make new xxx F103C8` | 64K | 20K | Blue Pill, 最小系统板 |
-| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | 各种开发板 |
-
-生成的结构：
-```
-项目名/
-├── CMakeLists.txt    ← 编译配置（芯片参数已自动填好）
-├── link.ld           ← 链接脚本（Flash/RAM大小已匹配）
-├── inc/              ← 放头文件
-├── src/main.c        ← 代码入口（向量表已写好，直接写逻辑）
-└── build/            ← 编译产物
-```
-
-### 第三步：编译
+## Command Reference
 
 ```bash
-cd 项目名
-cmake -B build        # 配置（首次）
-cmake --build build   # 编译（之后只跑这个）
+stm32make new led-blink F103C8           # New project (bare metal)
+stm32make new led-blink F103C8 --spl     # New project (with SPL)
+stm32make new robot F103RCT6             # For RCT6
+stm32make list                           # List chip templates
+stm32make flash                          # Auto-detect & flash
+stm32make flash build/app.bin            # Flash specific file
+stm32make flash --use-reset              # Flash with hardware reset (NRST required)
+stm32make doctor                         # Diagnose environment
+stm32make update                         # Update from GitHub
 ```
 
-> **注意**: `setup.sh` 已自动将 `stm32make` 加入 PATH。
-> 如果使用 Fish shell, 运行 `source ~/.config/fish/config.fish` 或开新终端。
-> 不要 `source ~/.bashrc` — Fish 不兼容 Bash 语法。
-
-编译产物：
-- `build/项目名.elf` — 调试用
-- `build/项目名.bin` — 烧录用
-
-### 第四步：烧录
-
-**插上ST-Link或USB转TTL：**
+## Environment Diagnostics
 
 ```bash
-# 自动检测设备并烧录
-stm32make flash
-
-# 或指定文件
-stm32make flash build/led-blink.bin
+stm32make doctor
 ```
 
-`stm32make flash` 的自动检测逻辑：
-1. 优先检测 ST-Link → 用 `--connect-under-reset` 烧录（不依赖NRST线）
-2. 没有 ST-Link → 扫描 /dev/ttyUSB* 和 /dev/ttyACM*
-3. 只有一个串口 → 直接用
-4. 多个串口 → 让你选
-5. 没设备 → 报错引导你排查
+Checks:
+- arm-none-eabi-gcc / cmake / st-flash / stm32flash / python3
+- ST-Link udev rules
+- Serial port group membership
+- Chip templates availability
+- OS information
 
-> **⚠️ NRST 接线问题**: `stm32make flash` 默认**不加 `--reset`**，
-> 因为 ST-Link 的 NRST 引脚在很多 DIY 板子上没有连接。
-> 如果 `--reset` 配合未连接的 NRST 使用，芯片烧录后不会启动。
-> 
-> 如果你的 ST-Link 接了 NRST 线，加 `--use-reset` 启用硬件复位：
+## Update
+
+```bash
+stm32make update
+```
+
+Runs `git pull` in the toolkit directory. Since `setup.sh` adds `~/stm32-toolkit/bin/` directly to your PATH, updates are available immediately after pulling.
+
+## NRST Wiring Note
+
+> `stm32make flash` uses `--connect-under-reset` by default, **not** `--reset`.
+> This is because many DIY boards don't connect ST-Link's NRST pin to the MCU.
+> Using `--reset` without NRST wiring will leave the chip halted after flashing.
+>
+> If your ST-Link has NRST connected, add `--use-reset`:
 > ```bash
 > stm32make flash --use-reset
 > ```
 
-### 完整工作流（日常开发）
-
-```bash
-# 改代码 → 编译 → 烧录 → 看效果
-code src/main.c                       # 改代码
-cmake --build build                   # 编译
-st-flash --connect-under-reset write build/*.bin 0x08000000  # 或: stm32make flash
-picocom -b 115200 /dev/ttyUSB0        # 看串口输出
-```
-
-## stm32make 命令大全
-
-```bash
-stm32make new led-blink F103C8           # 新建C8T6项目（裸机）
-stm32make new led-blink F103C8 --spl     # 新建C8T6项目（带SPL库）
-stm32make new robot F103RCT6             # 新建RCT6项目（裸机）
-stm32make new robot F103RCT6 --spl       # 新建RCT6项目（带SPL库）
-stm32make list                           # 查看支持芯片
-stm32make flash                          # 自动检测设备并烧录
-stm32make flash build/app.bin            # 烧录指定文件
-stm32make flash --use-reset              # 烧录+硬件复位(NRST需接线)
-stm32make doctor                         # 诊断开发环境
-stm32make update                         # 从GitHub获取最新版
-```
-
-## SPL 模式（--spl 参数）
-
-使用 `--spl` 创建的项目会自动导入 **CMSIS 头文件 + STM32F1 标准外设库**：
-
-```
-项目名/
-├── src/main.c             ← 用SPL API写好的例子
-├── CMakeLists.txt          ← 已包含SPL源文件
-├── inc/stm32f10x_conf.h   ← SPL配置
-└── Drivers/
-    ├── CMSIS/              ← core_cm3.h, stm32f10x.h
-    └── SPL/                ← GPIO/RCC/USART等23个模块
-```
-
-SPL 是 ST 官方标准库（SLA0044 许可证），API 风格接近 HAL，但更轻量：
-
-## 烧录方式对比
-
-| 方式 | 设备 | 接线数 | 速度 | 调试 | 应用场景 |
-|:----|:----|:------|:----|:----|:--------|
-| ST-Link | ST-Link/V2 | 4线 (SWD) | 快 | ✅ 支持 | 日常开发 |
-| 串口ISP | CH340/CP2102 | 5线 (UART) | 慢 | ❌ | 部署调试 |
-
-## 项目目录结构
+## Project Structure
 
 ```
 stm32-toolkit/
-├── setup.sh                   ← 一键安装脚本
-├── bin/stm32make              ← 项目生成器 + 烧录工具
-├── packs/                     ← 芯片支持包
-│   ├── CMSIS/                 ← ARM内核头文件
-│   └── STM32F1_SPL/           ← STM32F1标准外设库 (SLA0044)
-├── templates/                 ← 芯片模板（可自行添加）
-│   ├── F103C8/                ← Blue Pill (裸机)
+├── setup.sh                   ← One-click install
+├── bin/stm32make              ← Project generator + flasher
+├── packs/
+│   ├── CMSIS/                 ← ARM Cortex core headers
+│   └── STM32F1_SPL/           ← ST Standard Peripheral Library (SLA0044)
+├── templates/                 ← Chip templates
+│   ├── F103C8/                ← Blue Pill (bare metal)
 │   ├── F103C8-spl/            ← Blue Pill (SPL)
-│   ├── F103RCT6/              ← RCT6 (裸机)
+│   ├── F103RCT6/              ← RCT6 (bare metal)
 │   └── F103RCT6-spl/          ← RCT6 (SPL)
-└── scripts/                   ← 工具脚本
+└── scripts/
 ```
 
-## 添加新芯片
+Generated project structure:
+
+```
+project_name/
+├── CMakeLists.txt
+├── link.ld
+├── inc/
+├── src/main.c
+└── build/
+```
+
+## Adding New Chips
 
 ```bash
-# 复制模板，改三个文件
 cp -r templates/F103C8 templates/STM32F407VG
-# 1. 改 link.ld 的 Flash/RAM 大小
-# 2. 改 CMakeLists.txt 的 -D 宏和 -mcpu
-# 3. 改 src/main.c 的 SP 栈顶地址
+# Edit link.ld (Flash/RAM sizes)
+# Edit CMakeLists.txt (-mcpu, -D macros)
+# Edit src/main.c (SP address)
 ```
 
-## 系统兼容性
+## Compatibility
 
-|| 发行版 | 包管理器 | 状态 | Shell支持 |
-||:------|:--------|:----|:---------|
-|| Ubuntu 20.04+ | apt | ✅ 测试通过 | bash / zsh |
-|| Debian 11+ | apt | ✅ 理论上 | bash / zsh |
-|| Fedora 35+ | dnf | ✅ 理论上 | bash / zsh |
-|| Arch Linux | pacman + yay/paru | ✅ 测试通过 | bash / zsh / fish |
-| 其他 | 手动安装 | ⚠️ 需手动装依赖 |
+| Distro | Package Manager | Status | Shell |
+|:-------|:---------------|:-------|:------|
+| Ubuntu 20.04+ | apt | ✅ Tested | bash / zsh |
+| Debian 11+ | apt | ✅ Theoretical | bash / zsh |
+| Fedora 35+ | dnf | ✅ Theoretical | bash / zsh |
+| Arch Linux | pacman + AUR helper | ✅ Tested | bash / zsh / fish |
+| Other | manual | ⚠️ Manual deps | — |
 
-## 依赖清单
+## Dependencies
 
-| 工具 | 用途 | 安装验证 |
-|:----|:-----|:--------|
-| `arm-none-eabi-gcc` | ARM交叉编译器 | `arm-none-eabi-gcc --version` |
-| `cmake` | 构建系统 | `cmake --version` |
-| `stlink-tools` | ST-Link烧录 | `st-info --probe` |
-| `stm32flash` | 串口ISP烧录 | `stm32flash --version` |
-| `python3` | 烧录脚本 | `python3 --version` |
-
-## 环境诊断 + 更新
-
-```bash
-# 一键检查环境，快速定位问题
-stm32make doctor
-
-# 从GitHub拉取最新版
-stm32make update
-```
-
-`stm32make doctor` 会检查：
-- arm-none-eabi-gcc / cmake / st-flash / stm32flash 是否安装
-- ST-Link udev 规则是否配置
-- 用户是否在 dialout 组（串口权限）
-- 芯片模板是否存在
-- 操作系统信息
-
-`stm32make update` 会自动 `git pull` 仓库并更新到最新版本。
+| Tool | Purpose | Verify |
+|:----|:--------|:-------|
+| `arm-none-eabi-gcc` | ARM cross-compiler | `arm-none-eabi-gcc --version` |
+| `cmake` | Build system | `cmake --version` |
+| `stlink-tools` | ST-Link flashing | `st-info --probe` |
+| `stm32flash` | Serial ISP flashing | `stm32flash --version` |
+| `python3` | Scripting | `python3 --version` |
