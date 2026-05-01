@@ -5,6 +5,18 @@
 
 CMD=$1; shift
 
+# 检测串口组名
+detect_serial_group() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        [ "$ID" = "arch" ] && echo "uucp" || echo "dialout"
+    else
+        echo "dialout"
+    fi
+}
+
+SERIAL_GROUP=$(detect_serial_group)
+
 case "$CMD" in
 new)
     NAME=$1; CHIP=$2
@@ -25,7 +37,7 @@ new)
         echo "   烧录: st-flash --reset write build/$NAME.bin 0x08000000"
     else
         echo "❌ 不支持的芯片: $CHIP"
-        echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\n' ' ')"
+        echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\\n' ' ')"
         exit 1
     fi
     ;;
@@ -67,7 +79,7 @@ flash)
         echo "   1. ST-Link 是否插入 USB?"
         echo "   2. VMware 菜单 → VM → Removable Devices → 选择设备 → Connect"
         echo "   3. 如果是串口ISP, 检查 /dev/ttyUSB* 是否存在"
-        echo "   4. 权限: sudo usermod -aG dialout \$USER (然后重登)"
+        echo "   4. 权限: sudo usermod -aG $SERIAL_GROUP \$USER (然后重登)"
         exit 1
     fi
     
@@ -93,9 +105,8 @@ flash)
     # 检测是否需要 sudo 或 newgrp
     if [ ! -r "$PORT" ]; then
         echo "⚠️  需要串口权限"
-        echo "   尝试: sudo usermod -aG dialout \$USER (Ubuntu)"
-        echo "   尝试: sudo usermod -aG uucp \$USER (Arch)"
-        echo "   或运行: newgrp dialout / newgrp uucp"
+        echo "   尝试: sudo usermod -aG $SERIAL_GROUP \$USER"
+        echo "   或运行: newgrp $SERIAL_GROUP"
         echo ""
         echo "   用 sudo 临时烧录..."
         sudo stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"

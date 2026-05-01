@@ -1,6 +1,7 @@
 # STM32 Toolkit — Linux嵌入式开发工具集
 
-一键安装，支持 Ubuntu / Debian / Fedora / Arch。
+一键安装，支持 Ubuntu / Debian / Fedora / Arch (含 AUR)。
+自动检测 Shell (bash/zsh/fish) 和串口组名。
 
 ## 快速开始
 
@@ -73,6 +74,10 @@ cd 项目名
 cmake -B build        # 配置（首次）
 cmake --build build   # 编译（之后只跑这个）
 ```
+
+> **注意**: `setup.sh` 已自动将 `stm32make` 加入 PATH。
+> 如果使用 Fish shell, 运行 `source ~/.config/fish/config.fish` 或开新终端。
+> 不要 `source ~/.bashrc` — Fish 不兼容 Bash 语法。
 
 编译产物：
 - `build/项目名.elf` — 调试用
@@ -148,12 +153,12 @@ cp -r templates/F103C8 templates/STM32F407VG
 
 ## 系统兼容性
 
-| 发行版 | 包管理器 | 状态 |
-|:------|:--------|:----|
-| Ubuntu 20.04+ | apt | ✅ 测试通过 |
-| Debian 11+ | apt | ✅ 理论上 |
-| Fedora 35+ | dnf | ✅ 理论上 |
-| Arch Linux | pacman | ✅ 理论上 |
+|| 发行版 | 包管理器 | 状态 | Shell支持 |
+||:------|:--------|:----|:---------|
+|| Ubuntu 20.04+ | apt | ✅ 测试通过 | bash / zsh |
+|| Debian 11+ | apt | ✅ 理论上 | bash / zsh |
+|| Fedora 35+ | dnf | ✅ 理论上 | bash / zsh |
+|| Arch Linux | pacman + yay/paru | ✅ 测试通过 | bash / zsh / fish |
 | 其他 | 手动安装 | ⚠️ 需手动装依赖 |
 
 ## 依赖清单
