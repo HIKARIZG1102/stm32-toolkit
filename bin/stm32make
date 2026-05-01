@@ -75,6 +75,11 @@ new)
     [ -z "$NAME" ] && { p "用法: stm32make new 项目名 [芯片型号] [--spl]" "Usage: stm32make new <name> <chip> [--spl]"; exit 1; }
     : ${CHIP:=F103C8}
 
+    # 芯片名带 -spl 后缀时自动启用 SPL 模式
+    case "$CHIP" in
+        *-spl) USE_SPL="yes"; CHIP="${CHIP%-spl}" ;;
+    esac
+
     TEMPLATE_NAME="$CHIP"
     [ -n "$USE_SPL" ] && TEMPLATE_NAME="${CHIP}-spl"
 
