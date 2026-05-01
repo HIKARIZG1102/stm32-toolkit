@@ -196,8 +196,8 @@ flash)
         p "   或运行: newgrp $SERIAL_GROUP" "   Or: newgrp $SERIAL_GROUP"
         echo ""
         p "   用 sudo 临时烧录..." "   Flashing with sudo..."
-        # 手动DTR/RTS序列，再用 -c 模式烧录
-        python3 -c "
+        p "   Python 驱动 DTR/RTS 进入 BootLoader..." "   Python driving DTR/RTS into BootLoader..."
+        sudo python3 -c "
 import serial, time, sys
 try:
     ser = serial.Serial('$PORT', 115200, timeout=2)
@@ -213,7 +213,7 @@ except: sys.exit(1)
         sudo stm32flash -b 115200 -c -w "$BIN" -g 0x0 "$PORT" || \
         sudo stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     else
-        # 手动DTR/RTS序列
+        p "   Python 驱动 DTR/RTS 进入 BootLoader..." "   Python driving DTR/RTS into BootLoader..."
         python3 -c "
 import serial, time, sys
 try:
