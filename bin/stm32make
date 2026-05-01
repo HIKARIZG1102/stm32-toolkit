@@ -19,24 +19,43 @@ SERIAL_GROUP=$(detect_serial_group)
 
 case "$CMD" in
 new)
+    NAME=$1; CHIP=$2; USE_SPL=""
+    # 解析参数
+    for arg in "$@"; do
+        [ "$arg" = "--spl" ] && USE_SPL="yes"
+    done
+    # 移动位置参数（去掉--spl）
     NAME=$1; CHIP=$2
-    [ -z "$NAME" ] && { echo "用法: stm32make new 项目名 [芯片型号]"; exit 1; }
+    [ -z "$NAME" ] && { echo "用法: stm32make new 项目名 [芯片型号] [--spl]"; exit 1; }
     : ${CHIP:=F103C8}
     
-    # 查找模板目录（支持安装在 bin/ 或 stm32-toolkit/bin/）
+    # 如果要求SPL，使用 spl 后缀模板
+    TEMPLATE_NAME="$CHIP"
+    [ -n "$USE_SPL" ] && TEMPLATE_NAME="${CHIP}-spl"
+    
+    # 查找模板目录
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     TOOLKIT_DIR=""
     for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit"; do
         [ -d "$dir/templates" ] && { TOOLKIT_DIR="$dir"; break; }
     done
     [ -z "$TOOLKIT_DIR" ] && { echo "❌ 找不到模板目录"; exit 1; }
-    TEMPLATE_DIR="$TOOLKIT_DIR/templates/$CHIP"
+    TEMPLATE_DIR="$TOOLKIT_DIR/templates/$TEMPLATE_NAME"
     
     if [ -d "$TEMPLATE_DIR" ]; then
         cp -r "$TEMPLATE_DIR" "$NAME"
         # 替换占位符
         find "$NAME" -type f -exec sed -i "s/__PROJECT_NAME__/$NAME/g" {} \;
-        echo "✅ 项目 $NAME ($CHIP) 已从模板创建"
+        
+        # 如果启用SPL，复制CMSIS和SPL库文件到项目
+        if [ -n "$USE_SPL" ]; then
+            mkdir -p "$NAME/Drivers/CMSIS" "$NAME/Drivers/SPL"
+            cp -r "$TOOLKIT_DIR/packs/CMSIS/"* "$NAME/Drivers/CMSIS/"
+            cp -r "$TOOLKIT_DIR/packs/STM32F1_SPL/"* "$NAME/Drivers/SPL/"
+            echo "✅ 已导入 CMSIS + SPL 库文件到 Drivers/"
+        fi
+        
+        echo "✅ 项目 $NAME ($CHIP) 已创建"
         echo "   编译: cd $NAME && cmake -B build && cmake --build build"
         echo "   烧录: st-flash --reset write build/$NAME.bin 0x08000000"
     else
