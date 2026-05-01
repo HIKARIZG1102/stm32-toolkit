@@ -1,0 +1,49 @@
+#!/bin/bash
+# stm32make — STM32项目生成器 v1.0
+# 用法: stm32make new <项目名> <芯片型号>
+# 芯片支持: F103C8, F103RCT6, F103VE, F407VG
+
+CMD=$1; shift
+
+case "$CMD" in
+new)
+    NAME=$1; CHIP=$2
+    [ -z "$NAME" ] && { echo "用法: stm32make new 项目名 [芯片型号]"; exit 1; }
+    : ${CHIP:=F103C8}
+    
+    # 查找模板目录
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    TOOLKIT_DIR="$(dirname "$SCRIPT_DIR")"
+    TEMPLATE_DIR="$TOOLKIT_DIR/templates/$CHIP"
+    
+    if [ -d "$TEMPLATE_DIR" ]; then
+        cp -r "$TEMPLATE_DIR" "$NAME"
+        # 替换占位符
+        find "$NAME" -type f -exec sed -i "s/__PROJECT_NAME__/$NAME/g" {} \;
+        echo "✅ 项目 $NAME ($CHIP) 已从模板创建"
+        echo "   编译: cd $NAME && cmake -B build && cmake --build build"
+        echo "   烧录: st-flash --reset write build/$NAME.bin 0x08000000"
+    else
+        echo "❌ 不支持的芯片: $CHIP"
+        echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\n' ' ')"
+        exit 1
+    fi
+    ;;
+
+list)
+    echo "可用芯片模板:"
+    for d in "$(dirname "$(dirname "$0")")/templates"/*/; do
+        [ -d "$d" ] && echo "  - $(basename "$d")"
+    done
+    ;;
+*)
+    echo "STM32 项目生成器 v1.0"
+    echo "用法:"
+    echo "  stm32make new <项目名> <芯片型号>  新建项目"
+    echo "  stm32make list                     列出可用芯片"
+    echo ""
+    echo "示例:"
+    echo "  stm32make new led-blink F103C8"
+    echo "  stm32make new robot-ctrl F103RCT6"
+    ;;
+esac
