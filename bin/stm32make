@@ -23,9 +23,13 @@ new)
     [ -z "$NAME" ] && { echo "用法: stm32make new 项目名 [芯片型号]"; exit 1; }
     : ${CHIP:=F103C8}
     
-    # 查找模板目录
+    # 查找模板目录（支持安装在 bin/ 或 stm32-toolkit/bin/）
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    TOOLKIT_DIR="$(dirname "$SCRIPT_DIR")"
+    TOOLKIT_DIR=""
+    for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit"; do
+        [ -d "$dir/templates" ] && { TOOLKIT_DIR="$dir"; break; }
+    done
+    [ -z "$TOOLKIT_DIR" ] && { echo "❌ 找不到模板目录"; exit 1; }
     TEMPLATE_DIR="$TOOLKIT_DIR/templates/$CHIP"
     
     if [ -d "$TEMPLATE_DIR" ]; then
@@ -43,8 +47,18 @@ new)
     ;;
 
 list)
+    # 找模板目录
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    TOOLKIT_DIR=""
+    for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit"; do
+        [ -d "$dir/templates" ] && { TOOLKIT_DIR="$dir"; break; }
+    done
+    if [ -z "$TOOLKIT_DIR" ]; then
+        echo "❌ 找不到模板目录"
+        exit 1
+    fi
     echo "可用芯片模板:"
-    for d in "$(dirname "$(dirname "$0")")/templates"/*/; do
+    for d in "$TOOLKIT_DIR/templates"/*/; do
         [ -d "$d" ] && echo "  - $(basename "$d")"
     done
     ;;
