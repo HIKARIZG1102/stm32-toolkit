@@ -115,12 +115,30 @@ picocom -b 115200 /dev/ttyUSB0        # 看串口输出
 ## stm32make 命令大全
 
 ```bash
-stm32make new led-blink F103C8    # 新建C8T6项目
-stm32make new robot F103RCT6      # 新建RCT6项目
-stm32make list                    # 查看支持芯片
-stm32make flash                   # 自动检测设备并烧录
-stm32make flash build/app.bin     # 烧录指定文件
+stm32make new led-blink F103C8           # 新建C8T6项目（裸机）
+stm32make new led-blink F103C8 --spl     # 新建C8T6项目（带SPL库）
+stm32make new robot F103RCT6             # 新建RCT6项目（裸机）
+stm32make new robot F103RCT6 --spl       # 新建RCT6项目（带SPL库）
+stm32make list                           # 查看支持芯片
+stm32make flash                          # 自动检测设备并烧录
+stm32make flash build/app.bin            # 烧录指定文件
 ```
+
+## SPL 模式（--spl 参数）
+
+使用 `--spl` 创建的项目会自动导入 **CMSIS 头文件 + STM32F1 标准外设库**：
+
+```
+项目名/
+├── src/main.c             ← 用SPL API写好的例子
+├── CMakeLists.txt          ← 已包含SPL源文件
+├── inc/stm32f10x_conf.h   ← SPL配置
+└── Drivers/
+    ├── CMSIS/              ← core_cm3.h, stm32f10x.h
+    └── SPL/                ← GPIO/RCC/USART等23个模块
+```
+
+SPL 是 ST 官方标准库（SLA0044 许可证），API 风格接近 HAL，但更轻量：
 
 ## 烧录方式对比
 
@@ -135,9 +153,14 @@ stm32make flash build/app.bin     # 烧录指定文件
 stm32-toolkit/
 ├── setup.sh                   ← 一键安装脚本
 ├── bin/stm32make              ← 项目生成器 + 烧录工具
+├── packs/                     ← 芯片支持包
+│   ├── CMSIS/                 ← ARM内核头文件
+│   └── STM32F1_SPL/           ← STM32F1标准外设库 (SLA0044)
 ├── templates/                 ← 芯片模板（可自行添加）
-│   ├── F103C8/                ← Blue Pill
-│   └── F103RCT6/              ← RCT6开发板
+│   ├── F103C8/                ← Blue Pill (裸机)
+│   ├── F103C8-spl/            ← Blue Pill (SPL)
+│   ├── F103RCT6/              ← RCT6 (裸机)
+│   └── F103RCT6-spl/          ← RCT6 (SPL)
 └── scripts/                   ← 工具脚本
 ```
 
