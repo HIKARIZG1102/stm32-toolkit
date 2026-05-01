@@ -1,9 +1,11 @@
 #!/bin/bash
-# stm32make — STM32项目生成器 v1.1
-# 用法: stm32make new <项目名> <芯片型号>
+# stm32make — STM32项目生成器 v1.2
+# 用法: stm32make <命令> [参数]
 # 芯片支持: F103C8, F103RCT6, F103VE, F407VG
 
 CMD=$1; shift
+
+# ── 公共函数 ──
 
 # 检测串口组名
 detect_serial_group() {
@@ -17,44 +19,45 @@ detect_serial_group() {
 
 SERIAL_GROUP=$(detect_serial_group)
 
+# 查找工具包根目录
+find_toolkit() {
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit" "$(dirname "$SCRIPT_DIR")"; do
+        [ -d "$dir/templates" ] && { echo "$dir"; return 0; }
+    done
+    return 1
+}
+
 case "$CMD" in
+
+# ── 新建项目 ──
 new)
     NAME=$1; CHIP=$2; USE_SPL=""
-    # 解析参数
     for arg in "$@"; do
         [ "$arg" = "--spl" ] && USE_SPL="yes"
     done
-    # 移动位置参数（去掉--spl）
     NAME=$1; CHIP=$2
     [ -z "$NAME" ] && { echo "用法: stm32make new 项目名 [芯片型号] [--spl]"; exit 1; }
     : ${CHIP:=F103C8}
-    
-    # 如果要求SPL，使用 spl 后缀模板
+
     TEMPLATE_NAME="$CHIP"
     [ -n "$USE_SPL" ] && TEMPLATE_NAME="${CHIP}-spl"
-    
-    # 查找模板目录
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    TOOLKIT_DIR=""
-    for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit"; do
-        [ -d "$dir/templates" ] && { TOOLKIT_DIR="$dir"; break; }
-    done
+
+    TOOLKIT_DIR=$(find_toolkit)
     [ -z "$TOOLKIT_DIR" ] && { echo "❌ 找不到模板目录"; exit 1; }
     TEMPLATE_DIR="$TOOLKIT_DIR/templates/$TEMPLATE_NAME"
-    
+
     if [ -d "$TEMPLATE_DIR" ]; then
         cp -r "$TEMPLATE_DIR" "$NAME"
-        # 替换占位符
         find "$NAME" -type f -exec sed -i "s/__PROJECT_NAME__/$NAME/g" {} \;
-        
-        # 如果启用SPL，复制CMSIS和SPL库文件到项目
+
         if [ -n "$USE_SPL" ]; then
             mkdir -p "$NAME/Drivers/CMSIS" "$NAME/Drivers/SPL"
             cp -r "$TOOLKIT_DIR/packs/CMSIS/"* "$NAME/Drivers/CMSIS/"
             cp -r "$TOOLKIT_DIR/packs/STM32F1_SPL/"* "$NAME/Drivers/SPL/"
             echo "✅ 已导入 CMSIS + SPL 库文件到 Drivers/"
         fi
-        
+
         echo "✅ 项目 $NAME ($CHIP) 已创建"
         echo "   编译: cd $NAME && cmake -B build && cmake --build build"
         echo "   烧录: st-flash --connect-under-reset write build/$NAME.bin 0x08000000"
@@ -62,18 +65,14 @@ new)
         echo "   或用 stm32make flash"
     else
         echo "❌ 不支持的芯片: $CHIP"
-        echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\\n' ' ')"
+        echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\\\\n' ' ')"
         exit 1
     fi
     ;;
 
+# ── 列出芯片 ──
 list)
-    # 找模板目录
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    TOOLKIT_DIR=""
-    for dir in "$SCRIPT_DIR/../stm32-toolkit" "$SCRIPT_DIR/.." "$HOME/stm32-toolkit" "$HOME/.local/share/stm32-toolkit"; do
-        [ -d "$dir/templates" ] && { TOOLKIT_DIR="$dir"; break; }
-    done
+    TOOLKIT_DIR=$(find_toolkit)
     if [ -z "$TOOLKIT_DIR" ]; then
         echo "❌ 找不到模板目录"
         exit 1
@@ -84,13 +83,13 @@ list)
     done
     ;;
 
+# ── 烧录 ──
 flash)
     USE_RESET=""
     for arg in "$@"; do
         [ "$arg" = "--use-reset" ] && USE_RESET="yes"
     done
 
-    # 找到第一个非选项参数作为BIN路径
     BIN=""
     for arg in "$@"; do
         case "$arg" in
@@ -100,7 +99,6 @@ flash)
     done
 
     if [ -z "$BIN" ]; then
-        # 自动查找 build/*.bin
         BIN=$(ls build/*.bin 2>/dev/null | head -1)
     fi
     if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
@@ -108,10 +106,9 @@ flash)
         echo "   用法: stm32make flash [--use-reset] [build/项目名.bin]"
         exit 1
     fi
-    
+
     echo "🔍 检测烧录设备..."
-    
-    # 优先检测 ST-Link
+
     if command -v st-info &>/dev/null && st-info --probe 2>/dev/null | grep -q "Found"; then
         echo "✅ 检测到 ST-Link"
         if [ -n "$USE_RESET" ]; then
@@ -122,8 +119,7 @@ flash)
         fi
         exit $?
     fi
-    
-    # 检测串口设备
+
     PORTS=$(ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null)
     if [ -z "$PORTS" ]; then
         echo "❌ 未检测到任何烧录设备"
@@ -135,8 +131,7 @@ flash)
         echo "   4. 权限: sudo usermod -aG $SERIAL_GROUP \$USER (然后重登)"
         exit 1
     fi
-    
-    # 多个串口设备
+
     COUNT=$(echo "$PORTS" | wc -l)
     if [ "$COUNT" -gt 1 ]; then
         echo "⚠️  检测到多个串口设备:"
@@ -152,10 +147,9 @@ flash)
     else
         PORT=$PORTS
     fi
-    
+
     echo "✅ 使用 $PORT"
-    
-    # 检测是否需要 sudo 或 newgrp
+
     if [ ! -r "$PORT" ]; then
         echo "⚠️  需要串口权限"
         echo "   尝试: sudo usermod -aG $SERIAL_GROUP \$USER"
@@ -168,13 +162,131 @@ flash)
     fi
     ;;
 
+# ── 环境检查 ──
+doctor)
+    echo "🔍 STM32 Toolkit 环境诊断"
+    echo ""
+
+    # OS信息
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo "ℹ️  OS:                $NAME $VERSION_ID"
+    else
+        echo "ℹ️  OS:                (未知)"
+    fi
+
+    # 内核
+    echo "ℹ️  内核:              $(uname -r)"
+
+    # arm-none-eabi-gcc
+    if command -v arm-none-eabi-gcc &>/dev/null; then
+        VER=$(arm-none-eabi-gcc --version | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+        echo "✅ arm-none-eabi-gcc  found  ($VER)"
+    else
+        echo "❌ arm-none-eabi-gcc  MISSING  (需要安装)"
+    fi
+
+    # cmake
+    if command -v cmake &>/dev/null; then
+        VER=$(cmake --version | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+        echo "✅ cmake              found  ($VER)"
+    else
+        echo "❌ cmake              MISSING  (需要安装)"
+    fi
+
+    # st-flash
+    if command -v st-flash &>/dev/null; then
+        VER=$(st-flash --version 2>&1 | head -1 | grep -oP '[\d]+\.[\d]+\.[\d]+' || echo "?")
+        echo "✅ st-flash           found  ($VER)"
+    else
+        echo "❌ st-flash           MISSING  (需要安装 stlink-tools)"
+    fi
+
+    # stm32flash
+    if command -v stm32flash &>/dev/null; then
+        echo "✅ stm32flash         found"
+    else
+        echo "❌ stm32flash         MISSING  (可选，串口ISP烧录用)"
+    fi
+
+    # UDEV规则 (ST-Link)
+    if ls /etc/udev/rules.d/*stlink* &>/dev/null; then
+        echo "✅ udev rules         present  (ST-Link)"
+    else
+        echo "⚠️  udev rules         MISSING  (ST-Link需要配置)"
+    fi
+
+    # 串口权限
+    if groups | grep -qE "\b($SERIAL_GROUP|dialout|uucp)\b"; then
+        echo "✅ 串口权限           OK  (用户已在 $SERIAL_GROUP 组)"
+    else
+        echo "⚠️  串口权限          需要修复"
+        echo "   运行: sudo usermod -aG $SERIAL_GROUP \$USER"
+        echo "   然后重新登录"
+    fi
+
+    # 模板
+    TOOLKIT_DIR=$(find_toolkit)
+    if [ -n "$TOOLKIT_DIR" ]; then
+        COUNT=$(ls -d "$TOOLKIT_DIR/templates"/*/ 2>/dev/null | wc -l)
+        echo "✅ 芯片模板           找到 $COUNT 个 ($TOOLKIT_DIR/templates/)"
+    else
+        echo "⚠️  芯片模板          未找到 (stm32make new 将无法工作)"
+    fi
+
+    # Python
+    if command -v python3 &>/dev/null; then
+        VER=$(python3 --version 2>&1 | grep -oP '[\d]+\.[\d]+\.[\d]+')
+        echo "✅ python3             found  ($VER)"
+    else
+        echo "❌ python3             MISSING  (需要安装)"
+    fi
+    ;;
+
+# ── 自动更新 ──
+update)
+    TOOLKIT_DIR=$(find_toolkit)
+    if [ -z "$TOOLKIT_DIR" ]; then
+        echo "❌ 找不到 stm32-toolkit 仓库目录"
+        exit 1
+    fi
+
+    if [ ! -d "$TOOLKIT_DIR/.git" ]; then
+        echo "❌ $TOOLKIT_DIR 不是 git 仓库，无法更新"
+        echo "   请重新克隆: git clone https://github.com/HIKARIZG1102/stm32-toolkit.git"
+        exit 1
+    fi
+
+    echo "📥 正在检查更新..."
+    cd "$TOOLKIT_DIR" || exit 1
+
+    OLD_VER=$(head -2 bin/stm32make | grep -oP 'v[\d]+\.[\d]+')
+
+    git pull --ff-only 2>&1 || {
+        echo "❌ git pull 失败"
+        echo "   可能有本地修改未提交，或网络问题"
+        exit 1
+    }
+
+    NEW_VER=$(head -2 bin/stm32make | grep -oP 'v[\d]+\.[\d]+')
+
+    if [ "$OLD_VER" != "$NEW_VER" ]; then
+        echo "✅ 已更新: $OLD_VER → $NEW_VER"
+    else
+        echo "✅ 已是最新版 ($OLD_VER)"
+    fi
+    ;;
+
+# ── 帮助 ──
 *)
-echo "STM32 项目生成器 v1.1"
+echo "STM32 项目生成器 v1.2"
 echo "用法:"
 echo "  stm32make new <项目名> <芯片型号>   新建项目"
 echo "  stm32make flash [<文件.bin>]        自动检测设备并烧录"
 echo "  stm32make flash --use-reset [<文件>] 烧录+硬件复位(NRST需接线)"
 echo "  stm32make list                      列出可用芯片"
+echo "  stm32make doctor                    诊断开发环境"
+echo "  stm32make update                    从GitHub获取最新版"
 echo ""
 echo "提示: flash默认用 --connect-under-reset（不依赖NRST线）"
 echo "     接好NRST的用户可加 --use-reset 启用硬件复位"
@@ -185,5 +297,7 @@ echo "  cd led-blink && cmake -B build && cmake --build build"
 echo "  stm32make flash build/led-blink.bin"
 echo "  stm32make flash                     (自动查找build/*.bin)"
 echo "  stm32make flash --use-reset          (有NRST接线时)"
+echo "  stm32make doctor                     (检查环境)"
+echo "  stm32make update                     (更新工具)"
     ;;
 esac

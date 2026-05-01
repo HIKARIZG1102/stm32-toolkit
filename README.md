@@ -132,6 +132,8 @@ stm32make list                           # 查看支持芯片
 stm32make flash                          # 自动检测设备并烧录
 stm32make flash build/app.bin            # 烧录指定文件
 stm32make flash --use-reset              # 烧录+硬件复位(NRST需接线)
+stm32make doctor                         # 诊断开发环境
+stm32make update                         # 从GitHub获取最新版
 ```
 
 ## SPL 模式（--spl 参数）
@@ -203,3 +205,22 @@ cp -r templates/F103C8 templates/STM32F407VG
 | `stlink-tools` | ST-Link烧录 | `st-info --probe` |
 | `stm32flash` | 串口ISP烧录 | `stm32flash --version` |
 | `python3` | 烧录脚本 | `python3 --version` |
+
+## 环境诊断 + 更新
+
+```bash
+# 一键检查环境，快速定位问题
+stm32make doctor
+
+# 从GitHub拉取最新版
+stm32make update
+```
+
+`stm32make doctor` 会检查：
+- arm-none-eabi-gcc / cmake / st-flash / stm32flash 是否安装
+- ST-Link udev 规则是否配置
+- 用户是否在 dialout 组（串口权限）
+- 芯片模板是否存在
+- 操作系统信息
+
+`stm32make update` 会自动 `git pull` 仓库并更新到最新版本。
