@@ -96,11 +96,20 @@ stm32make flash build/led-blink.bin
 ```
 
 `stm32make flash` 的自动检测逻辑：
-1. 优先检测 ST-Link → 直接烧
+1. 优先检测 ST-Link → 用 `--connect-under-reset` 烧录（不依赖NRST线）
 2. 没有 ST-Link → 扫描 /dev/ttyUSB* 和 /dev/ttyACM*
 3. 只有一个串口 → 直接用
 4. 多个串口 → 让你选
 5. 没设备 → 报错引导你排查
+
+> **⚠️ NRST 接线问题**: `stm32make flash` 默认**不加 `--reset`**，
+> 因为 ST-Link 的 NRST 引脚在很多 DIY 板子上没有连接。
+> 如果 `--reset` 配合未连接的 NRST 使用，芯片烧录后不会启动。
+> 
+> 如果你的 ST-Link 接了 NRST 线，加 `--use-reset` 启用硬件复位：
+> ```bash
+> stm32make flash --use-reset
+> ```
 
 ### 完整工作流（日常开发）
 
@@ -108,7 +117,7 @@ stm32make flash build/led-blink.bin
 # 改代码 → 编译 → 烧录 → 看效果
 code src/main.c                       # 改代码
 cmake --build build                   # 编译
-st-flash --reset write build/*.bin 0x08000000  # 或: stm32make flash
+st-flash --connect-under-reset write build/*.bin 0x08000000  # 或: stm32make flash
 picocom -b 115200 /dev/ttyUSB0        # 看串口输出
 ```
 
@@ -122,6 +131,7 @@ stm32make new robot F103RCT6 --spl       # 新建RCT6项目（带SPL库）
 stm32make list                           # 查看支持芯片
 stm32make flash                          # 自动检测设备并烧录
 stm32make flash build/app.bin            # 烧录指定文件
+stm32make flash --use-reset              # 烧录+硬件复位(NRST需接线)
 ```
 
 ## SPL 模式（--spl 参数）

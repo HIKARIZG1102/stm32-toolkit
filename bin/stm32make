@@ -1,5 +1,5 @@
 #!/bin/bash
-# stm32make — STM32项目生成器 v1.0
+# stm32make — STM32项目生成器 v1.1
 # 用法: stm32make new <项目名> <芯片型号>
 # 芯片支持: F103C8, F103RCT6, F103VE, F407VG
 
@@ -57,7 +57,9 @@ new)
         
         echo "✅ 项目 $NAME ($CHIP) 已创建"
         echo "   编译: cd $NAME && cmake -B build && cmake --build build"
-        echo "   烧录: st-flash --reset write build/$NAME.bin 0x08000000"
+        echo "   烧录: st-flash --connect-under-reset write build/$NAME.bin 0x08000000"
+        echo "   如果ST-Link接了NRST线: st-flash --connect-under-reset --reset write build/$NAME.bin 0x08000000"
+        echo "   或用 stm32make flash"
     else
         echo "❌ 不支持的芯片: $CHIP"
         echo "   可用: $(ls "$TOOLKIT_DIR/templates" 2>/dev/null | tr '\\n' ' ')"
@@ -83,14 +85,27 @@ list)
     ;;
 
 flash)
-    BIN="$1"
+    USE_RESET=""
+    for arg in "$@"; do
+        [ "$arg" = "--use-reset" ] && USE_RESET="yes"
+    done
+
+    # 找到第一个非选项参数作为BIN路径
+    BIN=""
+    for arg in "$@"; do
+        case "$arg" in
+            -* ) ;;
+            * ) [ -z "$BIN" ] && BIN="$arg" ;;
+        esac
+    done
+
     if [ -z "$BIN" ]; then
         # 自动查找 build/*.bin
         BIN=$(ls build/*.bin 2>/dev/null | head -1)
     fi
     if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
         echo "❌ 找不到 .bin 文件"
-        echo "   用法: stm32make flash build/项目名.bin"
+        echo "   用法: stm32make flash [--use-reset] [build/项目名.bin]"
         exit 1
     fi
     
@@ -99,7 +114,12 @@ flash)
     # 优先检测 ST-Link
     if command -v st-info &>/dev/null && st-info --probe 2>/dev/null | grep -q "Found"; then
         echo "✅ 检测到 ST-Link"
-        st-flash --reset write "$BIN" 0x08000000
+        if [ -n "$USE_RESET" ]; then
+            echo "   (启用硬件复位: --use-reset)"
+            st-flash --connect-under-reset --reset write "$BIN" 0x08000000
+        else
+            st-flash --connect-under-reset write "$BIN" 0x08000000
+        fi
         exit $?
     fi
     
@@ -149,16 +169,21 @@ flash)
     ;;
 
 *)
-echo "STM32 项目生成器 v1.0"
+echo "STM32 项目生成器 v1.1"
 echo "用法:"
-echo "  stm32make new <项目名> <芯片型号>  新建项目"
-echo "  stm32make flash [文件.bin]        自动检测设备并烧录"
-echo "  stm32make list                     列出可用芯片"
+echo "  stm32make new <项目名> <芯片型号>   新建项目"
+echo "  stm32make flash [<文件.bin>]        自动检测设备并烧录"
+echo "  stm32make flash --use-reset [<文件>] 烧录+硬件复位(NRST需接线)"
+echo "  stm32make list                      列出可用芯片"
+echo ""
+echo "提示: flash默认用 --connect-under-reset（不依赖NRST线）"
+echo "     接好NRST的用户可加 --use-reset 启用硬件复位"
 echo ""
 echo "示例:"
 echo "  stm32make new led-blink F103C8"
 echo "  cd led-blink && cmake -B build && cmake --build build"
 echo "  stm32make flash build/led-blink.bin"
-echo "  stm32make flash                    (自动查找build/*.bin)"
+echo "  stm32make flash                     (自动查找build/*.bin)"
+echo "  stm32make flash --use-reset          (有NRST接线时)"
     ;;
 esac
