@@ -4,13 +4,13 @@
 
 #define SP 0x2000C000
 
-int main(void);
+void main(void);
 __attribute__((used,section(".isr_vector")))
 void(*const v[])(void)={(void(*)())SP,main};
 
 void delay(volatile uint32_t c) { while(c--); }
 
-int main(void) {
+void main(void) {
     GPIO_InitTypeDef gpio;
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     GPIO_StructInit(&gpio);
