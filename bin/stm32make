@@ -90,14 +90,20 @@ flash)
     
     echo "✅ 使用 $PORT"
     
-    # 检测是否需要 sudo
+    # 检测是否需要 sudo 或 newgrp
     if [ ! -r "$PORT" ]; then
-        echo "⚠️  需要串口权限, 尝试 newgrp dialout..."
-        newgrp dialout <<< "stm32flash -b 115200 -w \"$BIN\" -g 0x0 \"$PORT\""
+        echo "⚠️  需要串口权限"
+        echo "   尝试: sudo usermod -aG dialout \$USER (Ubuntu)"
+        echo "   尝试: sudo usermod -aG uucp \$USER (Arch)"
+        echo "   或运行: newgrp dialout / newgrp uucp"
+        echo ""
+        echo "   用 sudo 临时烧录..."
+        sudo stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     else
         stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
     fi
     ;;
+
 *)
 echo "STM32 项目生成器 v1.0"
 echo "用法:"

@@ -79,11 +79,21 @@ if [ ! -f /etc/udev/rules.d/49-stlinkv3.rules ]; then
     echo "✅ ST-Link udev 规则已配置"
 fi
 
-# 将用户加入 dialout 组（串口权限）
-if ! groups | grep -q dialout; then
-    echo "⚠️  添加用户到 dialout 组（串口权限）..."
-    sudo usermod -aG dialout $USER
-    echo "   请重新登录或运行 'newgrp dialout' 使权限生效"
+# 将用户加入串口组（不同发行版名称不同）
+# Ubuntu/Debian = dialout, Arch = uucp
+SERIAL_GROUP="dialout"
+if [ "$OS" = "arch" ]; then
+    SERIAL_GROUP="uucp"
+fi
+# 如果组不存在则创建
+if ! getent group "$SERIAL_GROUP" > /dev/null 2>&1; then
+    echo "📦 创建 $SERIAL_GROUP 组..."
+    sudo groupadd "$SERIAL_GROUP"
+fi
+if ! groups | grep -q "$SERIAL_GROUP"; then
+    echo "⚠️  添加用户到 $SERIAL_GROUP 组（串口权限）..."
+    sudo usermod -aG "$SERIAL_GROUP" $USER
+    echo "   请重新登录或运行 'newgrp $SERIAL_GROUP' 使权限生效"
 fi
 
 echo ""
