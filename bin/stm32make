@@ -149,7 +149,7 @@ flash)
 
     p "🔍 检测烧录设备..." "🔍 Detecting programmer..."
 
-    if command -v st-info &>/dev/null && st-info --probe 2>/dev/null | grep -q "Found [1-9]"; then
+    if command -v st-info &>/dev/null && st-info --probe 2>/dev/null | grep -q "^Found [1-9]"; then
         p "✅ 检测到 ST-Link" "✅ ST-Link detected"
         if [ -n "$USE_RESET" ]; then
             p "   (启用硬件复位: --use-reset)" "   (hardware reset: --use-reset)"
