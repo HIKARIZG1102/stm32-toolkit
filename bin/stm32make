@@ -36,14 +36,79 @@ list)
         [ -d "$d" ] && echo "  - $(basename "$d")"
     done
     ;;
+
+flash)
+    BIN="$1"
+    if [ -z "$BIN" ]; then
+        # 自动查找 build/*.bin
+        BIN=$(ls build/*.bin 2>/dev/null | head -1)
+    fi
+    if [ -z "$BIN" ] || [ ! -f "$BIN" ]; then
+        echo "❌ 找不到 .bin 文件"
+        echo "   用法: stm32make flash build/项目名.bin"
+        exit 1
+    fi
+    
+    echo "🔍 检测烧录设备..."
+    
+    # 优先检测 ST-Link
+    if command -v st-info &>/dev/null && st-info --probe 2>/dev/null | grep -q "Found"; then
+        echo "✅ 检测到 ST-Link"
+        st-flash --reset write "$BIN" 0x08000000
+        exit $?
+    fi
+    
+    # 检测串口设备
+    PORTS=$(ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null)
+    if [ -z "$PORTS" ]; then
+        echo "❌ 未检测到任何烧录设备"
+        echo ""
+        echo "   请检查:"
+        echo "   1. ST-Link 是否插入 USB?"
+        echo "   2. VMware 菜单 → VM → Removable Devices → 选择设备 → Connect"
+        echo "   3. 如果是串口ISP, 检查 /dev/ttyUSB* 是否存在"
+        echo "   4. 权限: sudo usermod -aG dialout \$USER (然后重登)"
+        exit 1
+    fi
+    
+    # 多个串口设备
+    COUNT=$(echo "$PORTS" | wc -l)
+    if [ "$COUNT" -gt 1 ]; then
+        echo "⚠️  检测到多个串口设备:"
+        i=1
+        for p in $PORTS; do
+            echo "   $i) $p"
+            i=$((i+1))
+        done
+        echo -n "选择设备 (1-$COUNT): "
+        read -r SEL
+        PORT=$(echo "$PORTS" | sed -n "${SEL}p")
+        [ -z "$PORT" ] && { echo "❌ 无效选择"; exit 1; }
+    else
+        PORT=$PORTS
+    fi
+    
+    echo "✅ 使用 $PORT"
+    
+    # 检测是否需要 sudo
+    if [ ! -r "$PORT" ]; then
+        echo "⚠️  需要串口权限, 尝试 newgrp dialout..."
+        newgrp dialout <<< "stm32flash -b 115200 -w \"$BIN\" -g 0x0 \"$PORT\""
+    else
+        stm32flash -b 115200 -w "$BIN" -g 0x0 "$PORT"
+    fi
+    ;;
 *)
-    echo "STM32 项目生成器 v1.0"
-    echo "用法:"
-    echo "  stm32make new <项目名> <芯片型号>  新建项目"
-    echo "  stm32make list                     列出可用芯片"
-    echo ""
-    echo "示例:"
-    echo "  stm32make new led-blink F103C8"
-    echo "  stm32make new robot-ctrl F103RCT6"
+echo "STM32 项目生成器 v1.0"
+echo "用法:"
+echo "  stm32make new <项目名> <芯片型号>  新建项目"
+echo "  stm32make flash [文件.bin]        自动检测设备并烧录"
+echo "  stm32make list                     列出可用芯片"
+echo ""
+echo "示例:"
+echo "  stm32make new led-blink F103C8"
+echo "  cd led-blink && cmake -B build && cmake --build build"
+echo "  stm32make flash build/led-blink.bin"
+echo "  stm32make flash                    (自动查找build/*.bin)"
     ;;
 esac
