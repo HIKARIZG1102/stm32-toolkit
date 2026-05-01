@@ -6,11 +6,21 @@ set(CMAKE_C_FLAGS "-mcpu=cortex-m3 -mthumb -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER
 set(LINKER_SCRIPT "${CMAKE_SOURCE_DIR}/link.ld")
 set(CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,--gc-sections -specs=nano.specs -specs=nosys.specs -nostartfiles")
 
+# 包路径（从项目目录到 stm32-toolkit/packs/ 的相对路径）
+set(PACKS_DIR "${CMAKE_SOURCE_DIR}/../packs")
+
 # CMSIS + SPL 头文件
-include_directories(inc Drivers/CMSIS Drivers/SPL)
+include_directories(inc ${PACKS_DIR}/CMSIS ${PACKS_DIR}/STM32F1_SPL)
 
 # SPL 源文件（只启用需要的模块，省编译时间）
-file(GLOB SPL_SRC "Drivers/SPL/stm32f10x_gpio.c" "Drivers/SPL/stm32f10x_rcc.c" "Drivers/SPL/stm32f10x_usart.c" "Drivers/SPL/stm32f10x_flash.c" "Drivers/SPL/stm32f10x_exti.c")
+file(GLOB SPL_SRC
+    "${PACKS_DIR}/STM32F1_SPL/stm32f10x_gpio.c"
+    "${PACKS_DIR}/STM32F1_SPL/stm32f10x_rcc.c"
+    "${PACKS_DIR}/STM32F1_SPL/stm32f10x_usart.c"
+    "${PACKS_DIR}/STM32F1_SPL/stm32f10x_flash.c"
+    "${PACKS_DIR}/STM32F1_SPL/stm32f10x_exti.c"
+    "${PACKS_DIR}/STM32F1_SPL/misc.c"
+)
 
 # 用户源文件
 file(GLOB USER_SRC "src/*.c")
