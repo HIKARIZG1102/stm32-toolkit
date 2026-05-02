@@ -8,6 +8,7 @@ set(CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,--gc-sections -specs=nano.spe
 
 include_directories(inc Drivers/CMSIS Drivers/STM32F1_HAL_Driver/Inc)
 file(GLOB HAL_SRC "Drivers/STM32F1_HAL_Driver/Src/*.c")
+list(FILTER HAL_SRC EXCLUDE REGEX ".*_template\\.c$")
 file(GLOB USER_SRC "src/*.c")
 add_executable(__PROJECT_NAME__.elf ${HAL_SRC} ${USER_SRC})
 add_custom_command(TARGET __PROJECT_NAME__.elf POST_BUILD

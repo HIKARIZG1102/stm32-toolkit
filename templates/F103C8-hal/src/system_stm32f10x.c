@@ -1,11 +1,10 @@
 /**
   ******************************************************************************
   * @file    system_stm32f10x.c
-  * @brief   CMSIS Cortex-M3 System Source - STM32F10x
-  *          默认 HSI 8MHz, 取消注释 PLL 部分切换到 72MHz
+  * @brief   CMSIS Cortex-M3 System Source File - STM32F10x
   ******************************************************************************
   */
-#include "stm32f10x.h"
+#include "stm32f1xx.h"
 
 #define HSI_VALUE    ((uint32_t)8000000)
 uint32_t SystemCoreClock = HSI_VALUE;
