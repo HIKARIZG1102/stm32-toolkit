@@ -146,3 +146,28 @@ cp -r templates/F103C8 templates/STM32F407VG
 | `stlink-tools` | ST-Link flashing | `st-info --probe` |
 | `stm32flash` | Serial ISP flashing | `stm32flash --version` |
 | `python3` | Scripting | `python3 --version` |
+
+## Known Issues
+
+### 1. VTOR alignment requirement (gcc / Linux only)
+
+The ARM Cortex-M3 Vector Table Offset Register (VTOR) requires the vector table base address to be **512-byte aligned**. This is not an issue on Windows (CubeIDE/CubeMX use the on-chip flash vector table at `0x08000000`, which is naturally aligned).
+
+When using **HAL with RAM vector table** on gcc (e.g. to work around the SysTick interrupt issue described below), you must declare the RAM vector table with 512-byte alignment:
+
+```c
+static uint32_t ram_vector[256] __attribute__((aligned(512)));
+```
+
+Without this attribute, the linker may place the array at a non-aligned address (e.g. `0x2000002C`), causing VTOR writes to be silently ignored by the hardware, which results in "SysTick interrupt breaks GPIO" symptoms — the LED stays on but never blinks, and no visible error occurs.
+
+### 2. SystemCoreClock must be set before HAL_Init()
+
+When using the internal HSI oscillator (8 MHz, default after reset), `SystemCoreClock` in `.data` segment has initial value `72000000` (configured for 72 MHz operation). If `HAL_Init()` is called without first setting `SystemCoreClock = 8000000`, the SysTick reload value is calculated as `72000000 / 1000 = 72000`. With the actual 8 MHz HCLK, this results in a 9 ms tick period (not 1 ms), making `HAL_Delay(300)` wait 2.7 seconds instead of 300 ms.
+
+**Fix:** Always set `SystemCoreClock` before `HAL_Init()`:
+
+```c
+SystemCoreClock = 8000000;
+HAL_Init();
+```

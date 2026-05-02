@@ -145,3 +145,28 @@ cp -r templates/F103C8 templates/STM32F407VG
 | `stlink-tools` | ST-Link烧录 | `st-info --probe` |
 | `stm32flash` | 串口ISP烧录 | `stm32flash --version` |
 | `python3` | 脚本 | `python3 --version` |
+
+## 已知问题
+
+### 1. VTOR 对齐要求（仅 gcc / Linux）
+
+ARM Cortex-M3 的向量表偏移寄存器 (VTOR) 要求向量表基地址 **512 字节对齐**。Windows 下不是问题（CubeIDE/CubeMX 使用片上 Flash 向量表 `0x08000000`，天然对齐）。
+
+在 gcc 下使用 **HAL + RAM 向量表** 时，必须声明 512 字节对齐：
+
+```c
+static uint32_t ram_vector[256] __attribute__((aligned(512)));
+```
+
+如果缺少这个属性，链接器可能把数组放到未对齐的地址（如 `0x2000002C`），导致 VTOR 写入被硬件静默忽略。表现为「SysTick 中断破坏 GPIO」——LED 常亮但不闪烁，且没有任何可见错误。
+
+### 2. 必须在 HAL_Init() 前设置 SystemCoreClock
+
+使用内部 HSI 振荡器（8 MHz，复位后默认）时，`.data` 段中的 `SystemCoreClock` 初始值为 `72000000`（为 72 MHz 运行配置）。如果在 `HAL_Init()` 之前没设 `SystemCoreClock = 8000000`，SysTick 重载值会算成 `72000000 / 1000 = 72000`。实际 HCLK 只有 8 MHz，结果是 9 ms 的 tick 周期（不是 1 ms），`HAL_Delay(300)` 会等 2.7 秒而不是 300 ms。
+
+**修复：** 始终在 `HAL_Init()` 前设置 `SystemCoreClock`：
+
+```c
+SystemCoreClock = 8000000;
+HAL_Init();
+```
