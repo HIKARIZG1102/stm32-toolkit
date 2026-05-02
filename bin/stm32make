@@ -37,6 +37,7 @@ echo "Usage: stm32make <command> [options]"
 echo ""
 echo "Commands:"
 p "  new <name> <chip>     新建项目" "  new <name> <chip>     Create a new project"
+p "  build                 编译当前项目" "  build                 Build current project"
 p "  flash [opts] [file]   自动检测设备并烧录" "  flash [opts] [file]   Auto-detect & flash"
 p "  list                  列出可用芯片" "  list                  List supported chips"
 p "  doctor                诊断开发环境" "  doctor                Diagnose development environment"
@@ -121,6 +122,20 @@ list)
     for d in "$TOOLKIT_DIR/templates"/*/; do
         [ -d "$d" ] && echo "  - $(basename "$d")"
     done
+    ;;
+
+# ── build ──
+build)
+    if [ ! -f CMakeLists.txt ]; then
+        p "❌ 当前目录不是 STM32 项目（找不到 CMakeLists.txt）" "❌ Not an STM32 project (CMakeLists.txt not found)"
+        exit 1
+    fi
+    if [ ! -d build ] || [ ! -f build/CMakeCache.txt ]; then
+        p "📦 首次编译，配置 cmake..." "📦 First build, configuring cmake..."
+        cmake -B build || { p "❌ cmake 配置失败" "❌ cmake configuration failed"; exit 1; }
+    fi
+    p "🔨 编译中..." "🔨 Building..."
+    cmake --build build
     ;;
 
 # ── flash ──
