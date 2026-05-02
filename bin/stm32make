@@ -36,7 +36,7 @@ echo "stm32make v1.2 — STM32 project generator & flasher"
 echo "Usage: stm32make <command> [options]"
 echo ""
 echo "Commands:"
-p "  new <name> <chip>     新建项目" "  new <name> <chip>     Create a new project"
+p "  new <name> <chip>     新建项目\n                          (--spl: SPL库, --hal: HAL库)" "  new <name> <chip>     Create a new project\n                          (--spl: SPL lib, --hal: HAL lib)"
 p "  build                 编译当前项目" "  build                 Build current project"
 p "  flash [opts] [file]   自动检测设备并烧录" "  flash [opts] [file]   Auto-detect & flash"
 p "  list                  列出可用芯片" "  list                  List supported chips"
@@ -68,21 +68,24 @@ case "$CMD" in
 
 # ── new ──
 new)
-    NAME=$1; CHIP=$2; USE_SPL=""
+    NAME=$1; CHIP=$2; USE_SPL=""; USE_HAL=""
     for arg in "$@"; do
         [ "$arg" = "--spl" ] && USE_SPL="yes"
+        [ "$arg" = "--hal" ] && USE_HAL="yes"
     done
     NAME=$1; CHIP=$2
-    [ -z "$NAME" ] && { p "用法: stm32make new 项目名 [芯片型号] [--spl]" "Usage: stm32make new <name> <chip> [--spl]"; exit 1; }
+    [ -z "$NAME" ] && { p "用法: stm32make new 项目名 [芯片型号] [--spl|--hal]" "Usage: stm32make new <name> <chip> [--spl|--hal]"; exit 1; }
     : ${CHIP:=F103C8}
 
-    # 芯片名带 -spl 后缀时自动启用 SPL 模式
+    # 芯片名带 -spl/-hal 后缀时自动启用对应模式
     case "$CHIP" in
+        *-hal) USE_HAL="yes"; CHIP="${CHIP%-hal}" ;;
         *-spl) USE_SPL="yes"; CHIP="${CHIP%-spl}" ;;
     esac
 
     TEMPLATE_NAME="$CHIP"
     [ -n "$USE_SPL" ] && TEMPLATE_NAME="${CHIP}-spl"
+    [ -n "$USE_HAL" ] && TEMPLATE_NAME="${CHIP}-hal"
 
     TOOLKIT_DIR=$(find_toolkit)
     [ -z "$TOOLKIT_DIR" ] && { p "❌ 找不到模板目录" "❌ Template directory not found"; exit 1; }
@@ -97,6 +100,13 @@ new)
             cp -r "$TOOLKIT_DIR/packs/CMSIS/"* "$NAME/Drivers/CMSIS/"
             cp -r "$TOOLKIT_DIR/packs/STM32F1_SPL/"* "$NAME/Drivers/SPL/"
             p "✅ 已导入 CMSIS + SPL 库文件到 Drivers/" "✅ CMSIS + SPL imported to Drivers/"
+        fi
+
+        if [ -n "$USE_HAL" ]; then
+            mkdir -p "$NAME/Drivers/CMSIS" "$NAME/Drivers/STM32F1_HAL_Driver"
+            cp -r "$TOOLKIT_DIR/packs/CMSIS_F1/"* "$NAME/Drivers/CMSIS/"
+            cp -r "$TOOLKIT_DIR/packs/STM32F1_HAL_Driver/"* "$NAME/Drivers/STM32F1_HAL_Driver/"
+            p "✅ 已导入 CMSIS_F1 + HAL 库文件到 Drivers/" "✅ CMSIS_F1 + HAL imported to Drivers/"
         fi
 
         pf "✅ 项目 %s (%s) 已创建\n" "✅ Project %s (%s) created\n" "$NAME" "$CHIP"
