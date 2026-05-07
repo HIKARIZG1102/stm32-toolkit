@@ -1,4 +1,5 @@
 /* startup.c — STM32F103 启动文件（完整向量表版） */
+#include <stdint.h>
 extern void main(void);
 extern void SystemInit(void);
 
@@ -9,6 +10,9 @@ extern uint32_t _sbss;
 extern uint32_t _ebss;
 
 extern uint32_t _estack;
+
+/* 前向声明 */
+void Reset_Handler(void);
 
 /* 默认异常处理（死循环） */
 void __attribute__((weak, noreturn)) Default_Handler(void) {
