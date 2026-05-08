@@ -10,10 +10,17 @@ SECTIONS
 {
   .isr_vector : { KEEP(*(.isr_vector)) } > FLASH
 
-  .text : { *(.text*) *(.glue_7*) *(.glue_7t*) } > FLASH
+  .text : {
+    *(.text*)
+    *(.glue_7*)
+    *(.glue_7t*)
+    *(.ARM.extab*)
+    *(.ARM.exidx*)
+  } > FLASH
 
   .rodata : { *(.rodata*) } > FLASH
 
+  . = ALIGN(4);
   _sidata = .;
 
   .data : AT(_sidata)
@@ -30,4 +37,7 @@ SECTIONS
     *(COMMON)
     _ebss = .;
   } > RAM
+
+  _end = .;
+  PROVIDE(end = _end);
 }

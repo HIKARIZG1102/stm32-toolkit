@@ -9,6 +9,11 @@
 #define HSI_VALUE    ((uint32_t)8000000)
 uint32_t SystemCoreClock = HSI_VALUE;
 
+/* APB 预分频表 — 供 HAL RCC 使用 */
+const uint8_t APBPrescTable[8U] = {0, 0, 0, 0, 1, 2, 3, 4};
+/* AHB 预分频表 — 供 HAL RCC 使用 */
+const uint8_t AHBPrescTable[16U] = {0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+
 void SystemInit(void) {
     RCC->CR |= (uint32_t)0x00000001;
     RCC->CFGR &= (uint32_t)0xF8FF0000;
