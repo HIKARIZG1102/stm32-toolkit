@@ -161,9 +161,9 @@ stm32make update
 > stm32make flash --use-reset
 > ```
 
-## 学习项目
+## 示例项目
 
-本工具集构建的项目示例（见 [翻转课堂](/home/hikarizg/stm32/翻转课堂/)）：
+仓库 `examples/` 目录下包含了可直接编译的示例项目：
 
 | 项目 | 模式 | 说明 |
 |:-----|:-----|:------|
@@ -172,7 +172,12 @@ stm32make update
 | `ADC_Temp` | SPL | ADC1 内部温度传感器（通道 16），DMA 循环传输 |
 | `ADC_Light` | SPL | ADC1 外部光敏电阻（通道 0, PA0），转换完成中断 |
 
-每个项目都包含 USART1 printf 调试输出（通过 `_write()` 重定向）。
+每个项目都包含 USART1 printf 调试输出，编译烧录方式：
+
+```bash
+cd examples/TIM_General
+stm32make build && stm32make flash
+```
 
 ## 串口 ISP 烧录
 

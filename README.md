@@ -161,9 +161,9 @@ If VSCode's integrated terminal cannot find `stm32make`:
 > stm32make flash --use-reset
 > ```
 
-## Learning Projects
+## Example Projects
 
-Projects built with this toolkit (see [翻转课堂](/home/hikarizg/stm32/翻转课堂/)):
+The repository includes ready-to-build example projects in the `examples/` directory:
 
 | Project | Mode | Description |
 |:--------|:-----|:------------|
@@ -172,7 +172,12 @@ Projects built with this toolkit (see [翻转课堂](/home/hikarizg/stm32/翻转
 | `ADC_Temp` | SPL | ADC1 internal temperature sensor (channel 16), DMA circular transfer |
 | `ADC_Light` | SPL | ADC1 external light sensor (channel 0, PA0), conversion complete interrupt |
 
-Each project includes USART1 printf debug output via `_write()` redirect.
+Each project includes USART1 printf debug output and can be built with:
+
+```bash
+cd examples/TIM_General
+stm32make build && stm32make flash
+```
 
 ## Serial Flashing (ISP Mode)
 
