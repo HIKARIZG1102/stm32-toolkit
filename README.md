@@ -2,7 +2,7 @@
 
 [中文版](README_zh.md)
 
-One-click STM32 project creation, compilation, and flashing on Linux. Supports Ubuntu / Debian / Fedora / Arch.
+One-click STM32 project creation, compilation, and flashing on Linux. Supports bare-metal (no libraries), SPL (Standard Peripheral Library), and HAL (Hardware Abstraction Layer) modes.
 
 ```bash
 # 1. Clone
@@ -13,50 +13,108 @@ cd stm32-toolkit
 bash setup.sh
 
 # 3. Reload shell config
-source ~/.bashrc
+source ~/.profile
 
 # 4. Create a project
 stm32make new led-blink F103C8
 
 # 5. Build
-cd led-blink
-cmake -B build && cmake --build build
+cd led-blink && stm32make build
 
 # 6. Plug in ST-Link, flash
 stm32make flash
 ```
 
+## Quick Start
+
+```bash
+# ── Bare-metal (no library, minimal) ──
+stm32make new myproj F103RCT6
+
+# ── SPL mode (Standard Peripheral Library) ──
+stm32make new myproj F103RCT6 --spl
+
+# ── HAL mode (Hardware Abstraction Layer) ──
+stm32make new myproj F103RCT6 --hal
+
+# ── Build & Flash ──
+cd myproj
+stm32make build          # Build
+stm32make flash          # Auto-detect ST-Link or serial ISP, flash
+```
+
 ## Features
 
-- **`stm32make new <name> <chip>`** — Generate a complete project with vector table, linker script, and CMakeLists.txt
-- **`stm32make flash`** — Auto-detect ST-Link or serial ISP, flash with one command
-- **`stm32make doctor`** — Diagnose your dev environment (compiler, tools, permissions)
-- **`stm32make update`** — Pull the latest version from GitHub
-- **`stm32make list`** — List supported chip templates
-- **SPL mode** (`--spl`) — Optional STM32 Standard Peripheral Library integration
+| Command | Description |
+|:--------|:------------|
+| `stm32make new <name> <chip>` | Generate project (bare metal, default) |
+| `stm32make new <name> <chip> --spl` | Generate project with SPL library |
+| `stm32make new <name> <chip> --hal` | Generate project with HAL library (STM32CubeF1) |
+| `stm32make build` | One-click build from project directory |
+| `stm32make flash` | Auto-detect ST-Link or serial ISP, flash |
+| `stm32make flash --use-reset` | Flash with hardware reset (requires NRST wire) |
+| `stm32make flash build/app.bin` | Flash a specific .bin file |
+| `stm32make list` | List supported chip templates |
+| `stm32make doctor` | Diagnose development environment |
+| `stm32make update` | Pull latest version from GitHub |
 
 Language auto-detection: displays Chinese or English based on `$LANG`.
 
 ## Supported Chips
 
 | Chip | Command | Flash | RAM | Common Boards |
-|:----|:--------|:------|:----|:--------------|
-| STM32F103C8 | `stm32make new xxx F103C8` | 64K | 20K | Blue Pill, minimum dev board |
-| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | Various dev boards |
+|:-----|:--------|:------|:----|:--------------|
+| STM32F103C8 | `stm32make new xxx F103C8` | 64K | 20K | Blue Pill, minimum system board |
+| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | MiniSTM32, various dev boards |
 
-## Command Reference
+New chips can be added by creating a new template directory (see "Adding New Chips").
 
-```bash
-stm32make new led-blink F103C8           # New project (bare metal)
-stm32make new led-blink F103C8 --spl     # New project (with SPL)
-stm32make new robot F103RCT6             # For RCT6
-stm32make list                           # List chip templates
-stm32make flash                          # Auto-detect & flash
-stm32make flash build/app.bin            # Flash specific file
-stm32make flash --use-reset              # Flash with hardware reset (NRST required)
-stm32make doctor                         # Diagnose environment
-stm32make update                         # Update from GitHub
+## Generated Project Structure
+
+**Bare-metal / SPL mode:**
+
 ```
+myproj/
+├── CMakeLists.txt          ← Build config (mcpu, flags, sources)
+├── link.ld                 ← Linker script (Flash/RAM layout, .data/.bss)
+├── inc/
+│   └── stm32f10x_conf.h    ← SPL module selection (all enabled by default)
+├── src/
+│   └── main.c              ← Application entry (LED blink demo)
+├── Drivers/
+│   ├── CMSIS/              ← ARM Cortex-M core headers + system_stm32f10x.c
+│   └── SPL/                ← Standard Peripheral Library (when --spl)
+└── build/
+    └── myproj.bin          ← Compiled binary (ready to flash)
+```
+
+**HAL mode:**
+
+```
+myproj/
+├── CMakeLists.txt
+├── link.ld
+├── inc/
+│   └── stm32f1xx_hal_conf.h
+├── src/
+│   ├── main.c              ← Application (full HAL demo: LED + button)
+│   ├── startup.c           ← Full vector table + .data/.bss init
+│   └── system_stm32f10x.c  ← Clock configuration (SystemInit → 72MHz PLL)
+├── Drivers/
+│   ├── CMSIS/              ← CMSIS_F1 headers
+│   └── STM32F1_HAL_Driver/ ← STM32CubeF1 HAL library
+└── build/
+```
+
+### Template Evolution
+
+The most recent template improvements ensure:
+
+- **No hardcoded SP** — Stack pointer is auto-computed from linker script (`_estack = ORIGIN(RAM) + LENGTH(RAM)`), works across different chips without manual adjustment
+- **SystemInit() is called** — Generated projects run at 72MHz (PLL from 8MHz HSE) instead of 8MHz HSI
+- **.data/.bss sections** — Global/static variables are properly initialized (zeroed / copied from flash)
+- **CMSIS integrated** — `system_stm32f10x.c` is included and compiled automatically
+- **Full vector table** — In HAL mode, startup.c provides 82 interrupt vectors with weak `Default_Handler` fallback — just define the IRQHandler you need
 
 ## Environment Diagnostics
 
@@ -67,8 +125,8 @@ stm32make doctor
 Checks:
 - arm-none-eabi-gcc / cmake / st-flash / stm32flash / python3
 - ST-Link udev rules
-- Serial port group membership
-- Chip templates availability
+- Serial port group membership (dialout / uucp)
+- Chip template availability
 - OS information
 
 ## Update
@@ -77,7 +135,20 @@ Checks:
 stm32make update
 ```
 
-Runs `git pull` in the toolkit directory. Since `setup.sh` adds `~/stm32-toolkit/bin/` directly to your PATH, updates are available immediately after pulling.
+Runs `git pull` in the toolkit directory. A `~/bin/stm32make` symlink points to the repo version, so updates are immediately available.
+
+## VSCode Integration
+
+If VSCode's integrated terminal cannot find `stm32make`:
+
+1. **Symlink method (recommended):** The setup script creates `~/bin/stm32make → stm32-toolkit/bin/stm32make`. If `~/bin` is already in your PATH (default on Ubuntu), restart VSCode and it should work.
+
+2. **VSCode setting:** Enable login shell mode:
+   ```
+   "terminal.integrated.shellArgs.linux": ["-l"]
+   ```
+
+3. **Manual:** Run `source ~/.profile` in the terminal, or reopen VSCode.
 
 ## NRST Wiring Note
 
@@ -90,62 +161,82 @@ Runs `git pull` in the toolkit directory. Since `setup.sh` adds `~/stm32-toolkit
 > stm32make flash --use-reset
 > ```
 
-## Project Structure
+## Learning Projects
+
+Projects built with this toolkit (see [翻转课堂](/home/hikarizg/stm32/翻转课堂/)):
+
+| Project | Mode | Description |
+|:--------|:-----|:------------|
+| `TIM_General` | SPL | TIM2 general timer, 1s LED blink (ISR counter + main loop polling) |
+| `TIM_Advanced` | SPL | TIM1 advanced timer, dual independent timing (500ms + 1000ms on one LED) |
+| `ADC_Temp` | SPL | ADC1 internal temperature sensor (channel 16), DMA circular transfer |
+| `ADC_Light` | SPL | ADC1 external light sensor (channel 0, PA0), conversion complete interrupt |
+
+Each project includes USART1 printf debug output via `_write()` redirect.
+
+## Serial Flashing (ISP Mode)
+
+When no ST-Link is detected, `stm32make flash` automatically falls back to serial ISP:
+
+1. Drives CH340 DTR/RTS to enter the built-in bootloader
+2. Flashes via `stm32flash` over UART
+3. Requires: BOOT0=HIGH (bootloader), serial connection to USART1 (PA9/PA10)
+
+## Toolkit Directory Structure
 
 ```
 stm32-toolkit/
 ├── setup.sh                   ← One-click install
 ├── bin/stm32make              ← Project generator + flasher
 ├── packs/
-│   ├── CMSIS/                 ← ARM Cortex core headers
-│   └── STM32F1_SPL/           ← ST Standard Peripheral Library (SLA0044)
-├── templates/                 ← Chip templates
+│   ├── CMSIS/                 ← ARM Cortex core headers + system_stm32f10x.c
+│   ├── CMSIS_F1/              ← CMSIS for HAL (STM32CubeF1)
+│   ├── STM32F1_SPL/           ← ST Standard Peripheral Library
+│   └── STM32F1_HAL_Driver/    ← STM32CubeF1 HAL drivers
+├── templates/
 │   ├── F103C8/                ← Blue Pill (bare metal)
 │   ├── F103C8-spl/            ← Blue Pill (SPL)
 │   ├── F103RCT6/              ← RCT6 (bare metal)
-│   └── F103RCT6-spl/          ← RCT6 (SPL)
+│   ├── F103RCT6-spl/          ← RCT6 (SPL)
+│   ├── F103C8-hal/            ← Blue Pill (HAL)
+│   └── F103RCT6-hal/          ← RCT6 (HAL)
 └── scripts/
-```
-
-Generated project structure:
-
-```
-project_name/
-├── CMakeLists.txt
-├── link.ld
-├── inc/
-├── src/main.c
-└── build/
 ```
 
 ## Adding New Chips
 
 ```bash
-cp -r templates/F103C8 templates/STM32F407VG
-# Edit link.ld (Flash/RAM sizes)
-# Edit CMakeLists.txt (-mcpu, -D macros)
-# Edit src/main.c (SP address)
+cp -r templates/F103RCT6-spl templates/STM32F407VG
+# Edit link.ld (Flash/RAM sizes, memory map)
+# Edit CMakeLists.txt (-mcpu, -D macros, chip-specific compilation flags)
 ```
+
+The template system is modular. Create a new directory in `templates/`:
+- `CHIPNAME/` → bare metal (no libraries)
+- `CHIPNAME-spl/` → SPL library mode
+- `CHIPNAME-hal/` → HAL mode
+
+Each mode is independent. You only need to create the modes your chip supports.
 
 ## Compatibility
 
-| Distro | Package Manager | Status | Shell |
-|:-------|:---------------|:-------|:------|
+| Distro | Package Manager | Status | Shell Support |
+|:-------|:---------------|:-------|:--------------|
 | Ubuntu 20.04+ | apt | ✅ Tested | bash / zsh |
 | Debian 11+ | apt | ✅ Theoretical | bash / zsh |
 | Fedora 35+ | dnf | ✅ Theoretical | bash / zsh |
-| Arch Linux | pacman + AUR helper | ✅ Tested | bash / zsh / fish |
-| Other | manual | ⚠️ Manual deps | — |
+| Arch Linux | pacman + yay/paru | ✅ Tested | bash / zsh / fish |
+| Other | manual install | ⚠️ Manual deps | — |
 
 ## Dependencies
 
 | Tool | Purpose | Verify |
-|:----|:--------|:-------|
+|:-----|:--------|:-------|
 | `arm-none-eabi-gcc` | ARM cross-compiler | `arm-none-eabi-gcc --version` |
 | `cmake` | Build system | `cmake --version` |
 | `stlink-tools` | ST-Link flashing | `st-info --probe` |
 | `stm32flash` | Serial ISP flashing | `stm32flash --version` |
-| `python3` | Scripting | `python3 --version` |
+| `python3` + `pyserial` | Scripting + serial control | `python3 -c "import serial"` |
 
 ## Known Issues
 
@@ -171,3 +262,11 @@ When using the internal HSI oscillator (8 MHz, default after reset), `SystemCore
 SystemCoreClock = 8000000;
 HAL_Init();
 ```
+
+### 3. SPL template includes CMSIS source files
+
+When using `--spl` mode, the template automatically compiles `Drivers/CMSIS/*.c` (which includes `system_stm32f10x.c` for the `SystemInit()` function). If you see linker errors about `SystemInit` being undefined, ensure the build output includes CMSIS source compilation. This is now handled automatically in the template CMakeLists.txt.
+
+### 4. Global variables require .bss initialization
+
+The updated linker script includes `.data` and `.bss` sections, and the startup code (HAL mode's `startup.c` / SPL mode's `Reset_Handler`) initializes them. If you are porting old projects that hardcoded stack pointer values, update your linker script and main.c to use `_estack` from the linker script instead.

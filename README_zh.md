@@ -1,8 +1,8 @@
-# STM32 Toolkit — Linux嵌入式开发工具集
+# STM32 Toolkit — Linux 嵌入式开发工具集
 
 [English](README.md)
 
-一键在 Linux 上创建、编译、烧录 STM32 项目。支持 Ubuntu / Debian / Fedora / Arch。
+一键在 Linux 上创建、编译、烧录 STM32 项目。支持裸机（无库）、SPL（标准外设库）和 HAL（硬件抽象层）三种模式。
 
 ```bash
 # 1. 克隆
@@ -13,49 +13,108 @@ cd stm32-toolkit
 bash setup.sh
 
 # 3. 重新加载配置
-source ~/.bashrc
+source ~/.profile
 
 # 4. 新建项目
 stm32make new led-blink F103C8
 
 # 5. 编译
-cd led-blink
-cmake -B build && cmake --build build
+cd led-blink && stm32make build
 
-# 6. 插上ST-Link，烧录
+# 6. 插上 ST-Link，烧录
 stm32make flash
+```
+
+## 快速开始
+
+```bash
+# ── 裸机模式（无库，最小依赖）──
+stm32make new myproj F103RCT6
+
+# ── SPL 模式（标准外设库）──
+stm32make new myproj F103RCT6 --spl
+
+# ── HAL 模式（硬件抽象层）──
+stm32make new myproj F103RCT6 --hal
+
+# ── 编译 & 烧录 ──
+cd myproj
+stm32make build          # 一键编译
+stm32make flash          # 自动检测 ST-Link 或串口 ISP，烧录
 ```
 
 ## 功能特性
 
-- **`stm32make new <项目名> <芯片型号>`** — 生成完整项目（向量表、链接脚本、CMakeLists.txt）
-- **`stm32make flash`** — 自动检测 ST-Link 或串口 ISP，一键烧录
-- **`stm32make doctor`** — 诊断开发环境（编译器、工具、权限）
-- **`stm32make update`** — 从 GitHub 拉取最新版
-- **`stm32make list`** — 列出支持的芯片模板
-- **SPL 模式** (`--spl`) — 可选导入 STM32 标准外设库
-- **语言自动切换** — 根据 `$LANG` 自动显示中文或英文
+| 命令 | 说明 |
+|:-----|:------|
+| `stm32make new <项目名> <芯片>` | 生成项目（裸机，默认） |
+| `stm32make new <项目名> <芯片> --spl` | 生成项目（带 SPL 库） |
+| `stm32make new <项目名> <芯片> --hal` | 生成项目（带 HAL 库，STM32CubeF1） |
+| `stm32make build` | 从项目目录一键编译 |
+| `stm32make flash` | 自动检测 ST-Link 或串口 ISP，烧录 |
+| `stm32make flash --use-reset` | 烧录 + 硬件复位（需接 NRST 线） |
+| `stm32make flash build/app.bin` | 烧录指定 .bin 文件 |
+| `stm32make list` | 列出支持的芯片模板 |
+| `stm32make doctor` | 诊断开发环境 |
+| `stm32make update` | 从 GitHub 拉取最新版 |
+
+语言自动切换：根据 `$LANG` 自动显示中文或英文。
 
 ## 支持芯片
 
 | 芯片 | 命令 | Flash | RAM | 常见板子 |
-|:----|:-----|:------|:----|:--------|
+|:-----|:-----|:------|:----|:--------|
 | STM32F103C8 | `stm32make new xxx F103C8` | 64K | 20K | Blue Pill, 最小系统板 |
-| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | 各种开发板 |
+| STM32F103RCT6 | `stm32make new xxx F103RCT6` | 256K | 48K | MiniSTM32, 各种开发板 |
 
-## 命令大全
+新芯片可以通过创建新的模板目录添加（见「添加新芯片」）。
 
-```bash
-stm32make new led-blink F103C8           # 新建C8T6项目（裸机）
-stm32make new led-blink F103C8 --spl     # 新建C8T6项目（带SPL库）
-stm32make new robot F103RCT6             # 新建RCT6项目
-stm32make list                           # 查看支持芯片
-stm32make flash                          # 自动检测设备并烧录
-stm32make flash build/app.bin            # 烧录指定文件
-stm32make flash --use-reset              # 烧录+硬件复位(NRST需接线)
-stm32make doctor                         # 诊断开发环境
-stm32make update                         # 从GitHub获取最新版
+## 生成的项目结构
+
+**裸机 / SPL 模式：**
+
 ```
+myproj/
+├── CMakeLists.txt          ← 编译配置（mcpu, 编译选项, 源文件）
+├── link.ld                 ← 链接脚本（Flash/RAM 布局, .data/.bss）
+├── inc/
+│   └── stm32f10x_conf.h    ← SPL 模块选择（默认全开）
+├── src/
+│   └── main.c              ← 应用入口（LED 闪烁示例）
+├── Drivers/
+│   ├── CMSIS/              ← ARM Cortex-M 内核头文件 + system_stm32f10x.c
+│   └── SPL/                ← 标准外设库（--spl 时导入）
+└── build/
+    └── myproj.bin          ← 编译产物（烧录就用它）
+```
+
+**HAL 模式：**
+
+```
+myproj/
+├── CMakeLists.txt
+├── link.ld
+├── inc/
+│   └── stm32f1xx_hal_conf.h
+├── src/
+│   ├── main.c              ← 应用（完整 HAL 示例：LED + 按键）
+│   ├── startup.c           ← 完整向量表 + .data/.bss 初始化
+│   └── system_stm32f10x.c  ← 时钟配置（SystemInit → 72MHz PLL）
+├── Drivers/
+│   ├── CMSIS/              ← CMSIS_F1 头文件
+│   └── STM32F1_HAL_Driver/ ← STM32CubeF1 HAL 驱动库
+└── build/
+```
+
+### 模板演进说明
+
+最新模板改进：
+
+- **不再硬编码 SP** — 栈顶从链接脚本自动计算（`_estack = ORIGIN(RAM) + LENGTH(RAM)`），换芯片无需手动改地址
+- **调用 SystemInit()** — 生成的项目默认跑 72MHz（8MHz HSE → PLL），不是 8MHz HSI
+- **.data/.bss 段** — 全局/静态变量能正常初始化（清零 / 从 Flash 复制）
+- **CMSIS 集成** — `system_stm32f10x.c` 自动编译
+- **完整向量表** — HAL 模式提供 82 项中断向量，未使用的中断弱符号指向死循环，使用哪个中断就定义哪个函数
 
 ## 环境诊断
 
@@ -76,7 +135,20 @@ stm32make doctor
 stm32make update
 ```
 
-自动执行 `git pull`。因为 `setup.sh` 已将 `~/stm32-toolkit/bin/` 加入 PATH，拉取后新版立即可用。
+自动执行 `git pull`。`~/bin/stm32make` 是仓库版本软链接，拉取后新版立即可用。
+
+## VSCode 集成
+
+如果 VSCode 的集成终端找不到 `stm32make`：
+
+1. **软链接（推荐）：** 安装脚本已创建 `~/bin/stm32make → stm32-toolkit/bin/stm32make`。如果 `~/bin` 已在 PATH 中（Ubuntu 默认），重启 VSCode 即可。
+
+2. **VSCode 设置：** 启用登录 shell 模式：
+   ```
+   "terminal.integrated.shellArgs.linux": ["-l"]
+   ```
+
+3. **手动：** 在终端执行 `source ~/.profile`，或重启 VSCode。
 
 ## NRST 接线问题
 
@@ -89,47 +161,67 @@ stm32make update
 > stm32make flash --use-reset
 > ```
 
-## 项目目录结构
+## 学习项目
+
+本工具集构建的项目示例（见 [翻转课堂](/home/hikarizg/stm32/翻转课堂/)）：
+
+| 项目 | 模式 | 说明 |
+|:-----|:-----|:------|
+| `TIM_General` | SPL | TIM2 通用定时器，1s LED 闪烁（ISR 计数，主循环轮询） |
+| `TIM_Advanced` | SPL | TIM1 高级定时器，双路独立定时（0.5s + 1s 同一颗 LED） |
+| `ADC_Temp` | SPL | ADC1 内部温度传感器（通道 16），DMA 循环传输 |
+| `ADC_Light` | SPL | ADC1 外部光敏电阻（通道 0, PA0），转换完成中断 |
+
+每个项目都包含 USART1 printf 调试输出（通过 `_write()` 重定向）。
+
+## 串口 ISP 烧录
+
+当未检测到 ST-Link 时，`stm32make flash` 自动回退到串口 ISP 模式：
+
+1. 通过 CH340 DTR/RTS 驱动进入内置 BootLoader
+2. 通过 `stm32flash` 经 UART 烧录
+3. 需要：BOOT0=高电平（进入 BootLoader），串口连接至 USART1 (PA9/PA10)
+
+## 工具集目录结构
 
 ```
 stm32-toolkit/
 ├── setup.sh                   ← 一键安装脚本
 ├── bin/stm32make              ← 项目生成器 + 烧录工具
 ├── packs/
-│   ├── CMSIS/                 ← ARM内核头文件
-│   └── STM32F1_SPL/           ← STM32F1标准外设库 (SLA0044)
-├── templates/                 ← 芯片模板
-│   ├── F103C8/                ← Blue Pill (裸机)
-│   ├── F103C8-spl/            ← Blue Pill (SPL)
-│   ├── F103RCT6/              ← RCT6 (裸机)
-│   └── F103RCT6-spl/          ← RCT6 (SPL)
+│   ├── CMSIS/                 ← ARM 内核头文件 + system_stm32f10x.c
+│   ├── CMSIS_F1/              ← HAL 用的 CMSIS（STM32CubeF1）
+│   ├── STM32F1_SPL/           ← STM32F1 标准外设库
+│   └── STM32F1_HAL_Driver/    ← STM32CubeF1 HAL 驱动
+├── templates/
+│   ├── F103C8/                ← Blue Pill（裸机）
+│   ├── F103C8-spl/            ← Blue Pill（SPL）
+│   ├── F103RCT6/              ← RCT6（裸机）
+│   ├── F103RCT6-spl/          ← RCT6（SPL）
+│   ├── F103C8-hal/            ← Blue Pill（HAL）
+│   └── F103RCT6-hal/          ← RCT6（HAL）
 └── scripts/
-```
-
-生成的项目结构：
-
-```
-项目名/
-├── CMakeLists.txt
-├── link.ld
-├── inc/
-├── src/main.c
-└── build/
 ```
 
 ## 添加新芯片
 
 ```bash
-cp -r templates/F103C8 templates/STM32F407VG
-# 1. 改 link.ld 的 Flash/RAM 大小
-# 2. 改 CMakeLists.txt 的 -mcpu 和 -D 宏
-# 3. 改 src/main.c 的 SP 栈顶地址
+cp -r templates/F103RCT6-spl templates/STM32F407VG
+# 改 link.ld（Flash/RAM 大小）
+# 改 CMakeLists.txt（-mcpu, -D 宏）
 ```
+
+模板系统是模块化的，在 `templates/` 下创建目录：
+- `CHIPNAME/` → 裸机（无库）
+- `CHIPNAME-spl/` → SPL 库模式
+- `CHIPNAME-hal/` → HAL 模式
+
+每种模式独立，你的芯片支持哪些就建哪些。
 
 ## 系统兼容性
 
-| 发行版 | 包管理器 | 状态 | Shell支持 |
-|:------|:--------|:----|:---------|
+| 发行版 | 包管理器 | 状态 | Shell 支持 |
+|:-------|:--------|:-----|:----------|
 | Ubuntu 20.04+ | apt | ✅ 测试通过 | bash / zsh |
 | Debian 11+ | apt | ✅ 理论上 | bash / zsh |
 | Fedora 35+ | dnf | ✅ 理论上 | bash / zsh |
@@ -139,12 +231,12 @@ cp -r templates/F103C8 templates/STM32F407VG
 ## 依赖清单
 
 | 工具 | 用途 | 安装验证 |
-|:----|:-----|:--------|
-| `arm-none-eabi-gcc` | ARM交叉编译器 | `arm-none-eabi-gcc --version` |
+|:-----|:-----|:--------|
+| `arm-none-eabi-gcc` | ARM 交叉编译器 | `arm-none-eabi-gcc --version` |
 | `cmake` | 构建系统 | `cmake --version` |
-| `stlink-tools` | ST-Link烧录 | `st-info --probe` |
-| `stm32flash` | 串口ISP烧录 | `stm32flash --version` |
-| `python3` | 脚本 | `python3 --version` |
+| `stlink-tools` | ST-Link 烧录 | `st-info --probe` |
+| `stm32flash` | 串口 ISP 烧录 | `stm32flash --version` |
+| `python3` + `pyserial` | 脚本 + 串口控制 | `python3 -c "import serial"` |
 
 ## 已知问题
 
@@ -170,3 +262,11 @@ static uint32_t ram_vector[256] __attribute__((aligned(512)));
 SystemCoreClock = 8000000;
 HAL_Init();
 ```
+
+### 3. SPL 模板包含 CMSIS 源文件
+
+使用 `--spl` 模式时，模板自动编译 `Drivers/CMSIS/*.c`（包含 `system_stm32f10x.c`，提供 `SystemInit()` 函数）。如果遇到 `SystemInit` 未定义的链接错误，请确认模板是最新版。新版本的模板 CMakeLists.txt 已自动处理。
+
+### 4. 全局变量需要 .bss 初始化
+
+更新后的链接脚本包含 `.data` 和 `.bss` 段，启动代码对其进行初始化。如果你在移植旧项目（硬编码栈顶地址的），请用新的 link.ld 和 main.c 中的 `_estack` 方案替换。
