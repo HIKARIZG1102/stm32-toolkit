@@ -6,13 +6,11 @@ set(CMAKE_C_FLAGS "-mcpu=cortex-m3 -mthumb -DSTM32F10X_HD -DUSE_STDPERIPH_DRIVER
 set(LINKER_SCRIPT "${CMAKE_SOURCE_DIR}/link.ld")
 set(CMAKE_EXE_LINKER_FLAGS "-T${LINKER_SCRIPT} -Wl,--gc-sections -specs=nano.specs -specs=nosys.specs -nostartfiles -u _printf_float")
 
-# CMSIS + SPL 头文件（由 stm32make new --spl 自动复制到 Drivers/）
 include_directories(inc Drivers/CMSIS Drivers/SPL)
 
-# SPL 源文件（全部编译）
-file(GLOB SPL_SRC "Drivers/SPL/*.c")
+# SPL + CMSIS 源文件（system_stm32f10x.c 提供 SystemInit）
+file(GLOB SPL_SRC "Drivers/SPL/*.c" "Drivers/CMSIS/*.c")
 
-# 用户源文件
 file(GLOB USER_SRC "src/*.c")
 
 add_executable(__PROJECT_NAME__.elf ${SPL_SRC} ${USER_SRC})

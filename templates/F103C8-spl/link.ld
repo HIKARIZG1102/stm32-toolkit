@@ -3,11 +3,31 @@ MEMORY
   FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 64K
   RAM   (xrw) : ORIGIN = 0x20000000, LENGTH = 20K
 }
+
+_estack = ORIGIN(RAM) + LENGTH(RAM);
+
 SECTIONS
 {
   .isr_vector : { KEEP(*(.isr_vector)) } > FLASH
-  .text : { *(.text*) } > FLASH
+  .text : { *(.text*) *(.glue_7*) *(.glue_7t*) } > FLASH
   .rodata : { *(.rodata*) } > FLASH
+
+  _sidata = .;
+
+  .data : AT(_sidata)
+  {
+    _sdata = .;
+    *(.data*)
+    _edata = .;
+  } > RAM
+
+  .bss :
+  {
+    _sbss = .;
+    *(.bss*)
+    *(COMMON)
+    _ebss = .;
+  } > RAM
+
+  PROVIDE(end = .);
 }
-_SYSTEM_MEMORY_START = 0x1FFFF000;
-_SYSTEM_MEMORY_END   = 0x1FFFF800;

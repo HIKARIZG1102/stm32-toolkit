@@ -2,15 +2,20 @@
 #include "stm32f10x_gpio.h"
 #include "stm32f10x_rcc.h"
 
-#define SP 0x2000C000
+/* 栈顶由链接脚本定义：_estack = ORIGIN(RAM) + LENGTH(RAM) */
+extern uint32_t _estack;
 
-void main(void);
+int main(void);
+void SystemInit(void);
+
 __attribute__((used,section(".isr_vector")))
-void(*const v[])(void)={(void(*)())SP,main};
+void(*const v[])(void)={(void(*)())&_estack, (void(*)())main};
 
 void delay(volatile uint32_t c) { while(c--); }
 
-void main(void) {
+int main(void) {
+    SystemInit();
+
     GPIO_InitTypeDef gpio;
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB, ENABLE);
     GPIO_StructInit(&gpio);
