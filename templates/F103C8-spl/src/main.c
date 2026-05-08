@@ -1,9 +1,8 @@
 /**
- * Minimal STM32 project template.
+ * STM32 project template (SPL/bare-metal mode).
  *
- * Hardware configuration is in inc/board.h — edit it to match your board.
- * Common board definitions are available in the boards/ directory
- * of the stm32-toolkit repository.
+ * Hardware pinout is configured in inc/board.h.
+ * Edit board.h to match your PCB — no code changes in main.c needed.
  */
 
 #include "stm32f10x.h"
@@ -11,22 +10,32 @@
 #include "stm32f10x_rcc.h"
 #include "board.h"
 
-extern uint32_t _estack;
+extern uint32_t _estack, _sidata, _sdata, _edata, _sbss, _ebss;
 
-int main(void);
+void Reset_Handler(void);
 void SystemInit(void);
+int main(void);
 
 __attribute__((used, section(".isr_vector")))
 void (*const v[])(void) = {
     (void (*)())&_estack,
-    (void (*)())main,
+    Reset_Handler,
 };
+
+void __attribute__((naked)) Reset_Handler(void) {
+    uint32_t *src, *dst;
+    for (src = &_sidata, dst = &_sdata; dst < &_edata; src++, dst++)
+        *dst = *src;
+    for (dst = &_sbss; dst < &_ebss; dst++)
+        *dst = 0;
+    SystemInit();
+    main();
+    while (1);
+}
 
 static void delay(volatile uint32_t c) { while (c--); }
 
 int main(void) {
-    SystemInit();
-
     GPIO_InitTypeDef gpio;
     RCC_APB2PeriphClockCmd(LED_GPIO_CLK, ENABLE);
     GPIO_StructInit(&gpio);
@@ -34,7 +43,6 @@ int main(void) {
     gpio.GPIO_Mode  = GPIO_Mode_Out_PP;
     gpio.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_Init(LED_GPIO_PORT, &gpio);
-
     while (1) {
         GPIO_ResetBits(LED_GPIO_PORT, LED_GPIO_PIN);
         delay(2000000);
