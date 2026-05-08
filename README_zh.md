@@ -71,21 +71,23 @@ stm32make flash          # 自动检测 ST-Link 或串口 ISP，烧录
 
 ## 生成的项目结构
 
-**裸机 / SPL 模式：**
+**SPL / 裸机模式：**
 
 ```
 myproj/
 ├── CMakeLists.txt          ← 编译配置（mcpu, 编译选项, 源文件）
 ├── link.ld                 ← 链接脚本（Flash/RAM 布局, .data/.bss）
 ├── inc/
+│   ├── board.h             ← **板级引脚 + 时钟配置（改这里！）**
 │   └── stm32f10x_conf.h    ← SPL 模块选择（默认全开）
 ├── src/
-│   └── main.c              ← 应用入口（LED 闪烁示例）
+│   ├── startup.c           ← 完整向量表 + .data/.bss 初始化
+│   └── main.c              ← 应用入口（含 USER CODE 区域和时钟注释）
 ├── Drivers/
 │   ├── CMSIS/              ← ARM Cortex-M 内核头文件 + system_stm32f10x.c
 │   └── SPL/                ← 标准外设库（--spl 时导入）
 └── build/
-    └── myproj.bin          ← 编译产物（烧录就用它）
+    └── myproj.bin          ← 编译产物
 ```
 
 **HAL 模式：**
@@ -106,15 +108,17 @@ myproj/
 └── build/
 ```
 
-### 模板演进说明
+### 模板特性
 
-最新模板改进：
+生成的项目包含：
 
-- **不再硬编码 SP** — 栈顶从链接脚本自动计算（`_estack = ORIGIN(RAM) + LENGTH(RAM)`），换芯片无需手动改地址
-- **调用 SystemInit()** — 生成的项目默认跑 72MHz（8MHz HSE → PLL），不是 8MHz HSI
-- **.data/.bss 段** — 全局/静态变量能正常初始化（清零 / 从 Flash 复制）
-- **CMSIS 集成** — `system_stm32f10x.c` 自动编译
-- **完整向量表** — HAL 模式提供 82 项中断向量，未使用的中断弱符号指向死循环，使用哪个中断就定义哪个函数
+- **`startup.c`** — 完整向量表（HD 82 项 / MD 51 项）。所有中断默认指向弱符号 `Default_Handler`（死循环）。需要哪个中断，直接定义对应的 `IRQHandler` 即可自动覆盖。
+- **`board.h`** — 所有硬件引脚配置集中在一个文件。换板子只需改这一个文件。内含时钟配置指引（晶振频率、PLL 设置、HSI 回退方案）。
+- **`USER CODE` 区域** — `main.c` 设有 `USER CODE BEGIN/END` 标记。USART/printf 代码块用 `#if 0/#endif` 开关——改为 `#if 1` 即可启用。
+- **不再硬编码 SP** — 栈顶从链接脚本自动计算，换芯片无需手动改地址。
+- **SystemInit() 自动调用** — 项目默认跑 72MHz（8MHz HSE → PLL），而非 8MHz HSI。
+- **.data/.bss 段** — 全局变量和 printf 开箱即用。
+- **CMSIS 集成** — `system_stm32f10x.c` 自动编译。
 
 ## 环境诊断
 
@@ -228,11 +232,11 @@ stm32-toolkit/
 │   └── STM32F1_HAL_Driver/    ← STM32CubeF1 HAL 驱动
 ├── templates/
 │   ├── F103C8/                ← Blue Pill（裸机）
-│   ├── F103C8-spl/            ← Blue Pill（SPL）
+│   ├── F103C8-spl/            ← Blue Pill（SPL + startup.c）
 │   ├── F103RCT6/              ← RCT6（裸机）
-│   ├── F103RCT6-spl/          ← RCT6（SPL）
-│   ├── F103C8-hal/            ← Blue Pill（HAL）
-│   └── F103RCT6-hal/          ← RCT6（HAL）
+│   ├── F103RCT6-spl/          ← RCT6（SPL + startup.c）
+│   ├── F103C8-hal/            ← Blue Pill（HAL + startup.c）
+│   └── F103RCT6-hal/          ← RCT6（HAL + startup.c）
 └── scripts/
 ```
 
@@ -300,6 +304,12 @@ HAL_Init();
 
 使用 `--spl` 模式时，模板自动编译 `Drivers/CMSIS/*.c`（包含 `system_stm32f10x.c`，提供 `SystemInit()` 函数）。如果遇到 `SystemInit` 未定义的链接错误，请确认模板是最新版。新版本的模板 CMakeLists.txt 已自动处理。
 
-### 4. 全局变量需要 .bss 初始化
+### 4. 旧模板的 .bss 初始化问题（已修复）
 
-更新后的链接脚本包含 `.data` 和 `.bss` 段，启动代码对其进行初始化。如果你在移植旧项目（硬编码栈顶地址的），请用新的 link.ld 和 main.c 中的 `_estack` 方案替换。
+旧版 SPL 模板（2026-05-09 之前）的 `main.c` 将 `main()` 直接用作 `Reset_Handler`，跳过了 `.data`/`.bss` 初始化。如果你在使用旧模板生成的项目时遇到 `printf()` 无输出或程序无声崩溃，请：
+
+1. 更新工具包：`stm32make update`
+2. 将 `src/startup.c` 复制到旧项目
+3. 将 `main.c` 中的向量表从 `(void(*)())main` 改为 `Reset_Handler`，并加入 `.data`/`.bss` 初始化代码
+
+新模板已包含 `startup.c`，无此问题。

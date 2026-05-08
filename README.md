@@ -71,17 +71,18 @@ New chips can be added by creating a new template directory (see "Adding New Chi
 
 ## Generated Project Structure
 
-**Bare-metal / SPL mode:**
+**SPL / bare-metal mode:**
 
 ```
 myproj/
 ├── CMakeLists.txt          ← Build config (mcpu, flags, sources)
 ├── link.ld                 ← Linker script (Flash/RAM, .data/.bss)
 ├── inc/
-│   ├── board.h             ← **Your board's pin mappings (edit this!)**
+│   ├── board.h             ← **Your board's pinout + clock config (edit this!)**
 │   └── stm32f10x_conf.h    ← SPL module selection (all enabled by default)
 ├── src/
-│   └── main.c              ← Application entry (uses board.h macros)
+│   ├── startup.c           ← Full vector table (82/51 entries) + .data/.bss init
+│   └── main.c              ← Application entry with USER CODE regions
 ├── Drivers/
 │   ├── CMSIS/              ← ARM Cortex-M core headers + system_stm32f10x.c
 │   └── SPL/                ← Standard Peripheral Library (when --spl)
@@ -107,15 +108,17 @@ myproj/
 └── build/
 ```
 
-### Template Evolution
+### Template Features
 
-The most recent template improvements ensure:
+The generated project includes:
 
-- **No hardcoded SP** — Stack pointer is auto-computed from linker script (`_estack = ORIGIN(RAM) + LENGTH(RAM)`), works across different chips without manual adjustment
-- **SystemInit() is called** — Generated projects run at 72MHz (PLL from 8MHz HSE) instead of 8MHz HSI
-- **.data/.bss sections** — Global/static variables are properly initialized (zeroed / copied from flash)
-- **CMSIS integrated** — `system_stm32f10x.c` is included and compiled automatically
-- **Full vector table** — In HAL mode, startup.c provides 82 interrupt vectors with weak `Default_Handler` fallback — just define the IRQHandler you need
+- **`startup.c`** — Full vector table (82 entries for High-Density, 51 for Medium-Density). All interrupt handlers default to a weak `Default_Handler` (infinite loop). To use any interrupt, just define the `IRQHandler` in your code — it automatically overrides the weak symbol.
+- **`board.h`** — All hardware pin mappings in one file. Move between boards by editing only this file. Includes clock configuration guidance (HSE frequency, PLL settings, HSI fallback).
+- **`USER CODE` sections** — `main.c` has `USER CODE BEGIN/END` markers so you can regenerate the project without losing your code (future feature). The USART/printf block uses `#if 0/#endif` toggle — change to `#if 1` to enable.
+- **No hardcoded SP** — Stack pointer is auto-computed from linker script (`_estack = ORIGIN(RAM) + LENGTH(RAM)`), works across different chips without manual adjustment.
+- **SystemInit() is called** — Projects run at 72MHz (PLL from 8MHz HSE) instead of 8MHz HSI, via startup.c's Reset_Handler.
+- **.data/.bss sections** — Global/static variables are properly initialized (zeroed / copied from flash). `printf()` works out of the box.
+- **CMSIS integrated** — `system_stm32f10x.c` is included and compiled automatically.
 
 ## Environment Diagnostics
 
@@ -229,11 +232,11 @@ stm32-toolkit/
 │   └── STM32F1_HAL_Driver/    ← STM32CubeF1 HAL drivers
 ├── templates/
 │   ├── F103C8/                ← Blue Pill (bare metal)
-│   ├── F103C8-spl/            ← Blue Pill (SPL)
+│   ├── F103C8-spl/            ← Blue Pill (SPL + startup.c)
 │   ├── F103RCT6/              ← RCT6 (bare metal)
-│   ├── F103RCT6-spl/          ← RCT6 (SPL)
-│   ├── F103C8-hal/            ← Blue Pill (HAL)
-│   └── F103RCT6-hal/          ← RCT6 (HAL)
+│   ├── F103RCT6-spl/          ← RCT6 (SPL + startup.c)
+│   ├── F103C8-hal/            ← Blue Pill (HAL + startup.c)
+│   └── F103RCT6-hal/          ← RCT6 (HAL + startup.c)
 └── scripts/
 ```
 
@@ -301,6 +304,12 @@ HAL_Init();
 
 When using `--spl` mode, the template automatically compiles `Drivers/CMSIS/*.c` (which includes `system_stm32f10x.c` for the `SystemInit()` function). If you see linker errors about `SystemInit` being undefined, ensure the build output includes CMSIS source compilation. This is now handled automatically in the template CMakeLists.txt.
 
-### 4. Global variables require .bss initialization
+### 4. Old template .bss initialization issue (fixed)
 
-The updated linker script includes `.data` and `.bss` sections, and the startup code (HAL mode's `startup.c` / SPL mode's `Reset_Handler`) initializes them. If you are porting old projects that hardcoded stack pointer values, update your linker script and main.c to use `_estack` from the linker script instead.
+Older SPL templates (before 2026-05-09) used `main()` directly as `Reset_Handler`, skipping `.data`/`.bss` initialization. If you encounter `printf()` hanging silently on old projects:
+
+1. Update: `stm32make update`
+2. Copy `src/startup.c` into your old project
+3. Change the vector table from `(void(*)())main` to `Reset_Handler` in `main.c`
+
+New templates include `startup.c` — no issue.
