@@ -76,11 +76,12 @@ New chips can be added by creating a new template directory (see "Adding New Chi
 ```
 myproj/
 ├── CMakeLists.txt          ← Build config (mcpu, flags, sources)
-├── link.ld                 ← Linker script (Flash/RAM layout, .data/.bss)
+├── link.ld                 ← Linker script (Flash/RAM, .data/.bss)
 ├── inc/
+│   ├── board.h             ← **Your board's pin mappings (edit this!)**
 │   └── stm32f10x_conf.h    ← SPL module selection (all enabled by default)
 ├── src/
-│   └── main.c              ← Application entry (LED blink demo)
+│   └── main.c              ← Application entry (uses board.h macros)
 ├── Drivers/
 │   ├── CMSIS/              ← ARM Cortex-M core headers + system_stm32f10x.c
 │   └── SPL/                ← Standard Peripheral Library (when --spl)
@@ -160,6 +161,34 @@ If VSCode's integrated terminal cannot find `stm32make`:
 > ```bash
 > stm32make flash --use-reset
 > ```
+
+## Architecture: Chip vs Board
+
+The toolkit separates **chip-level** (CPU core, Flash/RAM sizes, startup files) from **board-level** (LED pins, USART pins, button mappings).
+
+```
+templates/     ← Chip-level only — contributed by maintainers
+boards/        ← Board-level pin definitions — contributed by community
+examples/      ← Full working projects — contributed by anyone
+```
+
+When you create a project, the template generates `inc/board.h` with sensible defaults. If your board uses different pins, just edit that one file instead of modifying the application logic.
+
+Standard board definitions are in `boards/` for quick reference:
+
+```bash
+# Use Blue Pill pinout as reference
+cat boards/bluepill.h
+
+# Use MiniSTM32 RCT6 pinout
+cat boards/mini_stm32_rct6.h
+```
+
+### How to port a project to a different board
+
+1. Edit `inc/board.h` — change LED, USART, and button macros
+2. Rebuild — `stm32make build`
+3. That's it — no code changes needed in `main.c`
 
 ## Example Projects
 

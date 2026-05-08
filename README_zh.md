@@ -161,6 +161,34 @@ stm32make update
 > stm32make flash --use-reset
 > ```
 
+## 架构设计：芯片层 vs 板级
+
+工具集将**芯片级**（CPU 内核、Flash/RAM 大小、启动文件）与**板级**（LED 引脚、串口引脚、按键映射）分离：
+
+```
+templates/     ← 芯片级 — 由维护者管理
+boards/        ← 板级引脚定义 — 社区贡献
+examples/      ← 完整项目 — 任何人都可贡献
+```
+
+新建项目时，模板自动生成 `inc/board.h`，内含该芯片最常见封装的默认引脚。如果你的 PCB 引脚不同，只需编辑这一个文件，无需修改应用逻辑。
+
+标准板定义在 `boards/` 目录下供参考：
+
+```bash
+# 查看 Blue Pill 引脚定义
+cat boards/bluepill.h
+
+# 查看 MiniSTM32 RCT6 引脚定义
+cat boards/mini_stm32_rct6.h
+```
+
+### 如何移植项目到不同板子
+
+1. 编辑 `inc/board.h` — 修改 LED、串口、按键的宏
+2. 重新编译 — `stm32make build`
+3. 完成 — `main.c` 不需要任何改动
+
 ## 示例项目
 
 仓库 `examples/` 目录下包含了可直接编译的示例项目：
