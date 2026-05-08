@@ -127,22 +127,50 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOOLKIT_BIN="$SCRIPT_DIR/bin"
 
+# ── 确保 ~/bin 存在并创建 symlink（通用方案，不依赖 shell rc）──
+mkdir -p "$HOME/bin"
+if [ ! -L "$HOME/bin/stm32make" ]; then
+    ln -sf "$TOOLKIT_BIN/stm32make" "$HOME/bin/stm32make" 2>/dev/null && \
+        echo "✅ 已创建 ~/bin/stm32make -> $TOOLKIT_BIN/stm32make (软链接)"
+fi
+
+# ── 写入各 shell 配置文件 ──
 case "$(basename "$SHELL")" in
     fish)
-        if grep -q "stm32-toolkit" "$SHELL_CONFIG" 2>/dev/null; then
-            echo "✅ 环境变量已在 $SHELL_CONFIG 中"
-        else
+        if ! grep -q "stm32-toolkit" "$SHELL_CONFIG" 2>/dev/null; then
             {
                 echo ""
                 echo "# STM32 Toolkit"
                 echo "fish_add_path $TOOLKIT_BIN"
                 echo "set -gx STM32_TOOLKIT $SCRIPT_DIR"
             } >> "$SHELL_CONFIG"
-            echo "✅ 已添加 PATH + STM32_TOOLKIT 到 $SHELL_CONFIG"
+            echo "✅ 已添加 PATH 到 $SHELL_CONFIG"
+        fi
+        ;;
+    zsh)
+        # ~/.zshrc: interactive zsh
+        if ! grep -q "stm32-toolkit" ~/.zshrc 2>/dev/null; then
+            {
+                echo ""
+                echo "# STM32 Toolkit"
+                echo "export PATH=\"\$PATH:$TOOLKIT_BIN\""
+                echo "export STM32_TOOLKIT=\"$SCRIPT_DIR\""
+            } >> ~/.zshrc
+            echo "✅ 已添加 PATH 到 ~/.zshrc"
+        fi
+        # ~/.zshenv: all zsh instances (VSCode tasks, scripts)
+        if ! grep -q "stm32-toolkit" ~/.zshenv 2>/dev/null; then
+            {
+                echo ""
+                echo "# STM32 Toolkit"
+                echo "export PATH=\"\$PATH:$TOOLKIT_BIN\""
+                echo "export STM32_TOOLKIT=\"$SCRIPT_DIR\""
+            } >> ~/.zshenv
+            echo "✅ 已添加 PATH 到 ~/.zshenv（zsh 全模式）"
         fi
         ;;
     *)
-        # bash / zsh
+        # bash / sh / dash: ~/.bashrc for interactive, ~/.profile for login
         if ! grep -q "stm32-toolkit" ~/.bashrc 2>/dev/null; then
             {
                 echo ""
@@ -150,21 +178,26 @@ case "$(basename "$SHELL")" in
                 echo "export PATH=\"\$PATH:$TOOLKIT_BIN\""
                 echo "export STM32_TOOLKIT=\"$SCRIPT_DIR\""
             } >> ~/.bashrc
-            echo "✅ 已添加 PATH + STM32_TOOLKIT 到 ~/.bashrc"
+            echo "✅ 已添加 PATH 到 ~/.bashrc"
         fi
-        if [ "$(basename "$SHELL")" = "zsh" ] && [ -f ~/.zshrc ]; then
-            if ! grep -q "stm32-toolkit" ~/.zshrc 2>/dev/null; then
-                {
-                    echo ""
-                    echo "# STM32 Toolkit"
-                    echo "export PATH=\"\$PATH:$TOOLKIT_BIN\""
-                    echo "export STM32_TOOLKIT=\"$SCRIPT_DIR\""
-                } >> ~/.zshrc
-                echo "✅ 已添加 PATH + STM32_TOOLKIT 到 ~/.zshrc"
-            fi
+        if ! grep -q "stm32-toolkit" ~/.profile 2>/dev/null; then
+            {
+                echo ""
+                echo "# STM32 Toolkit"
+                echo "export PATH=\"\$PATH:$TOOLKIT_BIN\""
+                echo "export STM32_TOOLKIT=\"$SCRIPT_DIR\""
+            } >> ~/.profile
+            echo "✅ 已添加 PATH 到 ~/.profile（登录 shell / VSCode）"
         fi
         ;;
 esac
+
+echo ""
+echo "💡 关于 VSCode 集成终端找不到 stm32make:"
+echo "   ~/bin/stm32make 软链接已创建，如果 ~/bin 已在 PATH 中则无需额外配置。"
+echo "   若仍不生效，VSCode 设置中启用:"
+echo "   \"terminal.integrated.shellArgs.linux\": [\"-l\"]"
+echo "   或手动执行: source ~/.profile"
 
 # ── 添加 udev 规则（ST-Link 权限）──
 if [ ! -f /etc/udev/rules.d/49-stlinkv3.rules ]; then
